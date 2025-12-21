@@ -1,8 +1,5 @@
 // HTTP Client for BLUP API
 
-// Determine API URL based on environment
-// In development: use Vite proxy (/api)
-// In production: use Netlify Function proxy (/.netlify/functions/api)
 const isDevelopment = import.meta.env.DEV;
 
 // Generic fetch wrapper
@@ -13,16 +10,14 @@ export const authenticatedFetch = async <T>(
   let url: string;
 
   if (isDevelopment) {
-    // Development: use Vite proxy
+    // Development: Vite proxy
     url = `/api${endpoint}`;
   } else {
-    // Production: use Netlify Function as proxy
-    // Pass the endpoint as a query parameter
-    const encodedPath = encodeURIComponent(endpoint);
-    url = `/api?path=${encodedPath}`;
+    // Production: direct backend request
+    url = `http://92.50.154.150:45501${endpoint}`;
   }
 
-  const headers = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
