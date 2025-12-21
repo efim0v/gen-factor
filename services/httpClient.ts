@@ -14,7 +14,7 @@ export const authenticatedFetch = async <T>(
     url = `/api${endpoint}`;
   } else {
     // Production: direct backend request
-    url = `http://92.50.154.150:45501${endpoint}`;
+    url = `http://92.50.154.150:45501/blup/api/${endpoint}`;
   }
 
   const headers: Record<string, string> = {
