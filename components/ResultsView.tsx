@@ -1,7 +1,8 @@
 import React from 'react';
 import { AnalysisResults } from '../types';
 import { Download } from 'lucide-react';
-import { Button } from './UI';
+import { Button, TooltipText } from './UI';
+import { useApp } from '../contexts/AppContext';
 
 interface ResultsViewProps {
     results: AnalysisResults;
@@ -11,56 +12,81 @@ interface ResultsViewProps {
 
 interface TableHeaderProps {
     children: React.ReactNode;
+    tooltip?: boolean;
 }
 
 // Helper for table headers
-const TableHeader: React.FC<TableHeaderProps> = ({ children }) => (
-    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider bg-blue-500 border-r border-blue-400 last:border-r-0">
-        {children}
+const TableHeader: React.FC<TableHeaderProps> = ({ children, tooltip = false }) => (
+    <th className="px-6 py-3 text-left type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-r border-border last:border-r-0">
+        {tooltip && typeof children === 'string' ? (
+            <TooltipText text={children} maxWidth="max-w-[120px]" className="text-white dark:text-[#1a1a1a]" />
+        ) : (
+            children
+        )}
     </th>
 );
 
 interface TableCellProps {
     children: React.ReactNode;
     highlight?: boolean;
+    tooltip?: boolean;
 }
 
 // Helper for table cells
-const TableCell: React.FC<TableCellProps> = ({ children, highlight = false }) => (
-    <td className={`px-6 py-4 whitespace-nowrap text-sm text-slate-700 border-b border-slate-200 ${highlight ? 'font-semibold' : ''}`}>
-        {children}
+const TableCell: React.FC<TableCellProps> = ({ children, highlight = false, tooltip = false }) => (
+    <td className={`px-6 py-4 text-body text-text-primary border-b border-border ${highlight ? 'font-semibold' : ''}`}>
+        {tooltip && typeof children === 'string' ? (
+            <TooltipText text={children} maxWidth="max-w-[150px]" />
+        ) : (
+            <span className="whitespace-nowrap">{children}</span>
+        )}
     </td>
 );
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, isDownloading }) => {
+    const { t } = useApp();
+
+    // Extract all unique factors from modelAccuracy
+    const allFactors = React.useMemo(() => {
+        const factorSet = new Set<string>();
+        results.modelAccuracy.forEach(model => {
+            model.factors.forEach(factor => factorSet.add(factor));
+        });
+        return Array.from(factorSet).sort();
+    }, [results.modelAccuracy]);
+
+    // Sort model accuracy by number of factors (ascending)
+    const sortedModelAccuracy = React.useMemo(() => {
+        return [...results.modelAccuracy].sort((a, b) => a.factors.length - b.factors.length);
+    }, [results.modelAccuracy]);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h2 className="text-2xl font-bold text-slate-800 text-center mb-8">Результаты анализа</h2>
+            <h2 className="text-h2 text-text-primary text-center mb-8">{t.analysisResults}</h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Table 1: Factor Effect */}
-                <div className="bg-white shadow rounded-lg overflow-hidden border border-slate-200">
-                    <h3 className="px-6 py-4 text-lg font-semibold text-slate-800 bg-slate-50 border-b border-slate-200">
-                        Влияние факторов на признак
+                <div className="bg-surface shadow rounded-lg overflow-hidden border border-border">
+                    <h3 className="px-6 py-4 text-h4 text-text-primary bg-elevated border-b border-border">
+                        {t.factorEffects}
                     </h3>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-96">
                         <table className="min-w-full">
-                            <thead>
+                            <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <TableHeader>Фактор</TableHeader>
-                                    <TableHeader>Эффект</TableHeader>
-                                    <TableHeader>p-значение</TableHeader>
+                                    <TableHeader>{t.factor}</TableHeader>
+                                    <TableHeader>{t.effect}</TableHeader>
+                                    <TableHeader>{t.pValue}</TableHeader>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
+                            <tbody className="bg-surface divide-y divide-border">
                                 {results.factorEffects.map((row, idx) => (
-                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-blue-50/30' : 'bg-white'}>
-                                        <TableCell highlight>{row.factor}</TableCell>
+                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
+                                        <TableCell highlight tooltip>{row.factor}</TableCell>
                                         <TableCell>{row.effect}</TableCell>
                                         <TableCell>
                                             {row.pValue}
-                                            {row.pValue < 0.05 && <span className="text-blue-600 font-bold ml-1">*</span>}
+                                            {row.pValue < 0.05 && <span className="font-bold ml-1">*</span>}
                                         </TableCell>
                                     </tr>
                                 ))}
@@ -70,29 +96,29 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                 </div>
 
                 {/* Table 2: Correlation */}
-                <div className="bg-white shadow rounded-lg overflow-hidden border border-slate-200">
-                    <h3 className="px-6 py-4 text-lg font-semibold text-slate-800 bg-slate-50 border-b border-slate-200">
-                        Корреляция между факторами
+                <div className="bg-surface shadow rounded-lg overflow-hidden border border-border">
+                    <h3 className="px-6 py-4 text-h4 text-text-primary bg-elevated border-b border-border">
+                        {t.correlations}
                     </h3>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-96">
                         <table className="min-w-full">
-                            <thead>
+                            <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <TableHeader>Фактор 1</TableHeader>
-                                    <TableHeader>Фактор 2</TableHeader>
-                                    <TableHeader>Корреляция</TableHeader>
-                                    <TableHeader>p-значение</TableHeader>
+                                    <TableHeader>{t.factor1}</TableHeader>
+                                    <TableHeader>{t.factor2}</TableHeader>
+                                    <TableHeader>{t.correlation}</TableHeader>
+                                    <TableHeader>{t.pValue}</TableHeader>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
+                            <tbody className="bg-surface divide-y divide-border">
                                 {results.correlations.map((row, idx) => (
-                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-blue-50/30' : 'bg-white'}>
-                                        <TableCell>{row.factor1}</TableCell>
-                                        <TableCell>{row.factor2}</TableCell>
+                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
+                                        <TableCell tooltip>{row.factor1}</TableCell>
+                                        <TableCell tooltip>{row.factor2}</TableCell>
                                         <TableCell>{row.correlation}</TableCell>
                                         <TableCell>
                                             {row.pValue}
-                                            {row.pValue < 0.05 && <span className="text-blue-600 font-bold ml-1">*</span>}
+                                            {row.pValue < 0.05 && <span className="font-bold ml-1">*</span>}
                                         </TableCell>
                                     </tr>
                                 ))}
@@ -104,56 +130,76 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                  {/* Table 3: Model Accuracy */}
-                 <div className="bg-white shadow rounded-lg overflow-hidden border border-slate-200 h-fit">
-                    <h3 className="px-6 py-4 text-lg font-semibold text-slate-800 bg-slate-50 border-b border-slate-200">
-                        Точность прогнозной модели
+                 <div className="bg-surface shadow rounded-lg overflow-hidden border border-border h-fit">
+                    <h3 className="px-6 py-4 text-h4 text-text-primary bg-elevated border-b border-border">
+                        {t.modelAccuracy}
                     </h3>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto max-h-96">
                         <table className="min-w-full">
-                            <thead>
+                            <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <TableHeader>Список факторов</TableHeader>
-                                    <TableHeader>R2</TableHeader>
+                                    {allFactors.map(factor => (
+                                        <TableHeader key={factor} tooltip>{factor}</TableHeader>
+                                    ))}
+                                    <th className="sticky right-0 px-6 py-3 text-left type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-l-2 border-border-strong">
+                                        R²
+                                    </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
-                                {results.modelAccuracy.map((row, idx) => (
-                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-blue-50/30' : 'bg-white'}>
-                                        <TableCell>{row.factors.join(', ')}</TableCell>
-                                        <TableCell>{row.r2}</TableCell>
-                                    </tr>
-                                ))}
+                            <tbody className="bg-surface divide-y divide-border">
+                                {sortedModelAccuracy.map((row, idx) => {
+                                    const rowBg = idx % 2 === 0 ? 'bg-elevated' : 'bg-surface';
+                                    return (
+                                        <tr key={idx}>
+                                            {allFactors.map(factor => {
+                                                const hasFactor = row.factors.includes(factor);
+                                                return (
+                                                    <td
+                                                        key={factor}
+                                                        className={`px-6 py-4 text-body border-b border-border text-center ${
+                                                            hasFactor
+                                                                ? `${rowBg} text-text-primary font-medium`
+                                                                : 'bg-page'
+                                                        }`}
+                                                    >
+                                                        {hasFactor ? (
+                                                            <TooltipText text={factor} maxWidth="max-w-[100px]" className="mx-auto" />
+                                                        ) : ''}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className={`sticky right-0 px-6 py-4 whitespace-nowrap text-body-lg font-extrabold text-text-primary border-b border-border border-l-2 border-border-strong ${rowBg}`}>
+                                                {row.r2}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                {/* Recommended Factors List */}
-                <div className="flex flex-col space-y-4">
-                    <div className="bg-white shadow rounded-lg p-6 border border-slate-200">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4">Рекомендуемые факторы**</h3>
-                        <ul className="list-disc pl-5 space-y-2">
-                            {results.recommendedFactors.map((factor, idx) => (
-                                <li key={idx} className="text-slate-700 font-medium">{factor}</li>
-                            ))}
-                        </ul>
+                {/* Recommended Factors */}
+                <div className="bg-surface shadow rounded-lg p-6 border border-border">
+                    <h3 className="text-h4 text-text-primary mb-4">{t.recommendedFactors}**</h3>
+
+                    {/* Factors as Tags */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {results.recommendedFactors.map((factor, idx) => (
+                            <span
+                                key={idx}
+                                className="inline-flex items-center px-4 py-2 rounded-lg text-body-lg bg-elevated text-text-primary border border-border max-w-[250px]"
+                            >
+                                <TooltipText text={factor} maxWidth="max-w-[220px]" />
+                            </span>
+                        ))}
                     </div>
-                    
-                    {/* Download Action */}
-                    <div className="pt-4">
-                        <Button 
-                            onClick={onDownload} 
-                            isLoading={isDownloading} 
-                            icon={<Download className="w-5 h-5" />}
-                            className="w-full sm:w-auto"
-                        >
-                            Скачать результаты (ZIP)
-                        </Button>
-                        <p className="mt-4 text-xs text-slate-500 leading-relaxed">
-                            * p-значение &lt; 0.05 считается статистически значимым влиянием на признак.<br/>
-                            ** Список составлен по одному из двух критериев: 1) исключен один из пары признаков с взаимной корреляцией &gt; 0.7 и оставлены только статистически значимые факторы, 2) дисперсия описанной модели максимальна.
-                        </p>
-                    </div>
+
+                    {/* Hints */}
+                    <p className="text-caption text-text-secondary leading-relaxed">
+                        * {t.pValueHint}<br/>
+                        ** {t.recommendedFactorsHint}
+                    </p>
                 </div>
             </div>
         </div>

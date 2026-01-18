@@ -1,17 +1,30 @@
 const isDevelopment = import.meta.env.DEV;
 
+// Check if we're running on testserver (Docker deployment) or Vercel/Netlify
+const isDockerDeployment = typeof window !== 'undefined' && 
+  window.location.hostname.includes('testserver.tech');
+
 /**
  * Универсальный HTTP-клиент
  * - dev: Vite proxy → /api
- * - prod (Vercel): API Route → /api/blup?path=
+ * - prod (Docker/testserver): Direct /api/ path (nginx proxies to blup_api)
+ * - prod (Vercel/Netlify): API Route → /api/blup?path=
  */
 export const authenticatedFetch = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
-  const url = isDevelopment
-    ? `/api${endpoint}`
-    : `/api/blup?path=${encodeURIComponent(endpoint)}`;
+  let url: string;
+  
+  if (isDevelopment) {
+    url = `/api${endpoint}`;
+  } else if (isDockerDeployment) {
+    // Docker deployment - nginx proxies /api/* to blup_api
+    url = `/api${endpoint}`;
+  } else {
+    // Vercel/Netlify - use serverless function
+    url = `/api/blup?path=${encodeURIComponent(endpoint)}`;
+  }
 
   const response = await fetch(url, {
     ...options,

@@ -1,226 +1,217 @@
-import React, { useEffect, useState } from 'react';
-import { ApiService } from './services/api';
-import { SelectOption, AnalysisResults } from './types';
-import { SingleSelect, MultiSelect, Checkbox, Button } from './components/UI';
-import { ResultsView } from './components/ResultsView';
-import { Dna, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Dna, Activity, FlaskConical } from 'lucide-react';
+import FactorAnalysis from './pages/FactorAnalysis';
+import CrossValidation from './pages/CrossValidation';
+import MaxDataTest from './pages/MaxDataTest';
+import { SelectOption, AnalysisResults, CrossValidationResults } from './types';
+import { SettingsDropdown } from './components/SettingsDropdown';
+import { useApp } from './contexts/AppContext';
+
+type TabType = 'factor-analysis' | 'cross-validation';
+type RouteType = 'main' | 'test-max-data';
 
 const App: React.FC = () => {
-    // --- State ---
-    const [databases, setDatabases] = useState<SelectOption[]>([]);
-    const [breeds, setBreeds] = useState<SelectOption[]>([]);
-    const [traits, setTraits] = useState<SelectOption[]>([]);
-    const [availableFactors, setAvailableFactors] = useState<SelectOption[]>([]);
+    const { t } = useApp();
+    const [activeTab, setActiveTab] = useState<TabType>('factor-analysis');
+    const [recommendedFactors, setRecommendedFactors] = useState<string[]>([]);
+    const [currentRoute, setCurrentRoute] = useState<RouteType>('main');
 
-    const [selectedDb, setSelectedDb] = useState<SelectOption | null>(null);
-    const [selectedBreed, setSelectedBreed] = useState<SelectOption | null>(null);
-    const [selectedTrait, setSelectedTrait] = useState<SelectOption | null>(null);
-    const [selectedFactors, setSelectedFactors] = useState<SelectOption[]>([]);
-    const [analyzeAll, setAnalyzeAll] = useState(false);
-
-    // Loading States
-    const [loadingDb, setLoadingDb] = useState(false);
-    const [loadingBreeds, setLoadingBreeds] = useState(false);
-    const [loadingTraits, setLoadingTraits] = useState(false);
-    const [loadingFactors, setLoadingFactors] = useState(false);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
-
-    const [results, setResults] = useState<AnalysisResults | null>(null);
-
-    // --- Effects (Data Fetching Chain) ---
-
-    // 1. Initial Load: Databases
+    // Simple URL-based routing
     useEffect(() => {
-        setLoadingDb(true);
-        ApiService.getDatabases().then(setDatabases).finally(() => setLoadingDb(false));
+        const checkRoute = () => {
+            const path = window.location.pathname;
+            if (path === '/test/max_data') {
+                setCurrentRoute('test-max-data');
+            } else {
+                setCurrentRoute('main');
+            }
+        };
+
+        checkRoute();
+        window.addEventListener('popstate', checkRoute);
+        return () => window.removeEventListener('popstate', checkRoute);
     }, []);
 
-    // 2. When DB selected -> Fetch Breeds, Traits, and Factors
-    useEffect(() => {
-        if (selectedDb) {
-            // Fetch breeds
-            setLoadingBreeds(true);
-            setBreeds([]);
-            setSelectedBreed(null);
-            ApiService.getBreeds(selectedDb.id).then(setBreeds).finally(() => setLoadingBreeds(false));
+    // Separate state for Factor Analysis tab
+    const [faSelectedDb, setFaSelectedDb] = useState<SelectOption | null>(null);
+    const [faSelectedBreed, setFaSelectedBreed] = useState<SelectOption | null>(null);
+    const [faSelectedTrait, setFaSelectedTrait] = useState<SelectOption | null>(null);
+    const [faSelectedFactors, setFaSelectedFactors] = useState<SelectOption[]>([]);
+    const [faResults, setFaResults] = useState<AnalysisResults | null>(null);
 
-            // Fetch traits
-            setLoadingTraits(true);
-            setTraits([]);
-            setSelectedTrait(null);
-            ApiService.getTraits(selectedDb.id).then(setTraits).finally(() => setLoadingTraits(false));
+    // Separate state for Cross-Validation tab
+    const [cvSelectedDb, setCvSelectedDb] = useState<SelectOption | null>(null);
+    const [cvSelectedBreed, setCvSelectedBreed] = useState<SelectOption | null>(null);
+    const [cvSelectedTrait, setCvSelectedTrait] = useState<SelectOption | null>(null);
+    const [cvSelectedFactors, setCvSelectedFactors] = useState<SelectOption[]>([]);
+    const [cvResults, setCvResults] = useState<CrossValidationResults | null>(null);
 
-            // Fetch factors
-            setLoadingFactors(true);
-            setAvailableFactors([]);
-            setSelectedFactors([]);
-            setResults(null);
-            ApiService.getFactors(selectedDb.id).then(setAvailableFactors).finally(() => setLoadingFactors(false));
-        }
-    }, [selectedDb]);
-
-    // --- Handlers ---
-
-    const handleRunAnalysis = async () => {
-        if (selectedFactors.length === 0 && !analyzeAll) {
-            alert("Пожалуйста, выберите хотя бы один фактор или отметьте 'Анализировать все возможные комбинации'.");
-            return;
-        }
-
-        setIsAnalyzing(true);
-        setResults(null); // Clear previous results to show loading state effectively if needed
-        
-        try {
-            const factorIds = selectedFactors.map(f => f.id);
-            const data = await ApiService.runAnalysis(factorIds, analyzeAll);
-            setResults(data);
-            
-            // Scroll to results
-            setTimeout(() => {
-                document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-        } catch (error) {
-            console.error("Analysis failed", error);
-            alert("Ошибка анализа. Пожалуйста, попробуйте снова.");
-        } finally {
-            setIsAnalyzing(false);
-        }
+    const handleNavigateToCrossVal = (factors: string[]) => {
+        setRecommendedFactors(factors);
+        setActiveTab('cross-validation');
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDownload = async () => {
-        setIsDownloading(true);
-        try {
-            const blob = await ApiService.downloadResults();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `analysis_results_${new Date().getTime()}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } catch (error) {
-            console.error("Download failed", error);
-            alert("Ошибка загрузки.");
-        } finally {
-            setIsDownloading(false);
-        }
-    };
+    const tabs = [
+        {
+            id: 'factor-analysis' as const,
+            label: t.factorAnalysis,
+            icon: Activity,
+        },
+        {
+            id: 'cross-validation' as const,
+            label: t.crossValidation,
+            icon: FlaskConical,
+        },
+    ];
 
-    // --- Render Helpers ---
-    const showFactorsBlock = !!selectedDb;
+    // Render test page if on /test/max_data route
+    if (currentRoute === 'test-max-data') {
+        return (
+            <div className="min-h-screen bg-page pb-20">
+                {/* Header */}
+                <header className="bg-surface/95 backdrop-blur-sm border-b border-border sticky top-0 z-40">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            {/* Logo */}
+                            <div className="flex items-center gap-3">
+                                <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                    <div className="bg-interactive p-2.5 rounded-lg text-white dark:text-[#1a1a1a]">
+                                        <Dna size={24} />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-h4 text-text-primary">
+                                            {t.appTitle}
+                                        </h1>
+                                        <p className="text-caption text-text-secondary mt-0.5">
+                                            UI Stress Test
+                                        </p>
+                                    </div>
+                                </a>
+                            </div>
+
+                            {/* Settings */}
+                            <SettingsDropdown />
+                        </div>
+                    </div>
+                </header>
+
+                {/* Main Content */}
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <MaxDataTest />
+                </main>
+
+                {/* Footer */}
+                <footer className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border py-2">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center text-caption text-text-tertiary">
+                        <span>{t.footerCopyright}</span>
+                        <span>{t.footerPlatformName}</span>
+                    </div>
+                </footer>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen bg-page pb-20">
             {/* Header */}
-            <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-3">
-                    <div className="bg-blue-600 p-2 rounded-lg text-white">
-                        <Dna size={24} />
+            <header className="bg-surface/95 backdrop-blur-sm border-b border-border sticky top-0 z-40">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-16">
+                        {/* Logo */}
+                        <div className="flex items-center gap-3">
+                            <div className="bg-interactive p-2.5 rounded-lg text-white dark:text-[#1a1a1a]">
+                                <Dna size={24} />
+                            </div>
+                            <div>
+                                <h1 className="text-h4 text-text-primary">
+                                    {t.appTitle}
+                                </h1>
+                                <p className="text-caption text-text-secondary mt-0.5">
+                                    {t.appSubtitle}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Settings */}
+                        <SettingsDropdown />
                     </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-800 leading-none">Генетический Анализ</h1>
-                        <p className="text-xs text-slate-500 mt-1">Анализ корреляции факторов среды</p>
-                    </div>
+
+                    {/* Tab Navigation */}
+                    <nav className="flex gap-1 -mb-px" aria-label="Tabs">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`group relative flex items-center gap-2 px-4 py-3 text-body-md transition-all ${
+                                        isActive
+                                            ? 'text-text-primary'
+                                            : 'text-text-secondary hover:text-text-primary'
+                                    }`}
+                                >
+                                    <Icon className={`w-4 h-4 ${isActive ? 'text-text-primary' : 'text-text-tertiary group-hover:text-text-secondary'}`} />
+                                    <span>{tab.label}</span>
+
+                                    {/* Active indicator */}
+                                    <span
+                                        className={`absolute bottom-0 left-0 right-0 h-0.5 transition-all ${
+                                            isActive
+                                                ? 'bg-text-primary'
+                                                : 'bg-transparent group-hover:bg-border'
+                                        }`}
+                                    />
+                                </button>
+                            );
+                        })}
+                    </nav>
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-                
-                {/* Section 1: Core Selection */}
-                <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
-                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">1</span>
-                        Выбор данных
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <SingleSelect 
-                            label="База данных" 
-                            options={databases} 
-                            value={selectedDb} 
-                            onChange={setSelectedDb}
-                            loading={loadingDb}
-                            placeholder="Выберите базу данных..."
-                        />
-                        <SingleSelect
-                            label="Порода"
-                            options={breeds}
-                            value={selectedBreed}
-                            onChange={setSelectedBreed}
-                            disabled={!selectedDb}
-                            loading={loadingBreeds}
-                            placeholder={selectedDb ? "Выберите породу..." : "Сначала выберите базу данных"}
-                        />
-                        <SingleSelect
-                            label="Признак"
-                            options={traits}
-                            value={selectedTrait}
-                            onChange={setSelectedTrait}
-                            disabled={!selectedDb}
-                            loading={loadingTraits}
-                            placeholder={selectedDb ? "Выберите признак..." : "Сначала выберите базу данных"}
-                        />
-                    </div>
-                </section>
-
-                {/* Section 2: Factors Configuration (Conditional) */}
-                {showFactorsBlock && (
-                    <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <h2 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">2</span>
-                            Настройка факторов
-                        </h2>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-                            {/* MultiSelect takes up more space */}
-                            <div className="md:col-span-7 lg:col-span-8">
-                                <MultiSelect 
-                                    label="Факторы среды"
-                                    options={availableFactors}
-                                    selected={selectedFactors}
-                                    onChange={setSelectedFactors}
-                                    loading={loadingFactors}
-                                />
-                            </div>
-
-                            {/* Options and Action */}
-                            <div className="md:col-span-5 lg:col-span-4 flex flex-col justify-end h-full pt-6 space-y-6">
-                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                    <Checkbox 
-                                        label="Анализировать все возможные комбинации" 
-                                        checked={analyzeAll}
-                                        onChange={setAnalyzeAll}
-                                    />
-                                    <p className="text-xs text-slate-400 mt-2 ml-8">
-                                        Примечание: Это может значительно увеличить время обработки.
-                                    </p>
-                                </div>
-                                
-                                <Button 
-                                    onClick={handleRunAnalysis} 
-                                    isLoading={isAnalyzing}
-                                    className="w-full h-12 text-base shadow-md"
-                                    icon={<Activity className="w-5 h-5" />}
-                                >
-                                    Начать анализ
-                                </Button>
-                            </div>
-                        </div>
-                    </section>
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {activeTab === 'factor-analysis' && (
+                    <FactorAnalysis
+                        onNavigateToCrossVal={handleNavigateToCrossVal}
+                        selectedDb={faSelectedDb}
+                        setSelectedDb={setFaSelectedDb}
+                        selectedBreed={faSelectedBreed}
+                        setSelectedBreed={setFaSelectedBreed}
+                        selectedTrait={faSelectedTrait}
+                        setSelectedTrait={setFaSelectedTrait}
+                        selectedFactors={faSelectedFactors}
+                        setSelectedFactors={setFaSelectedFactors}
+                        results={faResults}
+                        setResults={setFaResults}
+                    />
                 )}
-
-                {/* Section 3: Results (Conditional) */}
-                {results && (
-                    <section id="results-section" className="pt-4 border-t-2 border-slate-100">
-                        <ResultsView 
-                            results={results} 
-                            onDownload={handleDownload}
-                            isDownloading={isDownloading}
-                        />
-                    </section>
+                {activeTab === 'cross-validation' && (
+                    <CrossValidation
+                        initialFactors={recommendedFactors}
+                        selectedDb={cvSelectedDb}
+                        setSelectedDb={setCvSelectedDb}
+                        selectedBreed={cvSelectedBreed}
+                        setSelectedBreed={setCvSelectedBreed}
+                        selectedTrait={cvSelectedTrait}
+                        setSelectedTrait={setCvSelectedTrait}
+                        selectedFactors={cvSelectedFactors}
+                        setSelectedFactors={setCvSelectedFactors}
+                        results={cvResults}
+                        setResults={setCvResults}
+                    />
                 )}
             </main>
+
+            {/* Footer */}
+            <footer className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border py-2">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center text-caption text-text-tertiary">
+                    <span>{t.footerCopyright}</span>
+                    <span>{t.footerPlatformName}</span>
+                </div>
+            </footer>
         </div>
     );
 };
