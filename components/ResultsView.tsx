@@ -37,9 +37,9 @@ interface TableCellProps {
     wrap?: boolean;
 }
 
-// Helper for table cells - reduced padding, adaptive width
+// Helper for table cells - reduced padding, adaptive width, with vertical dividers
 const TableCell: React.FC<TableCellProps> = ({ children, highlight = false, tooltip = false, className = '', wrap = false }) => (
-    <td className={`px-1.5 py-2 text-body text-text-primary border-b border-border ${highlight ? 'font-semibold' : ''} ${className}`}>
+    <td className={`px-1.5 py-2 text-body text-text-primary border-b border-r border-border last:border-r-0 ${highlight ? 'font-semibold' : ''} ${className}`}>
         {tooltip && typeof children === 'string' ? (
             <TooltipText text={children} maxWidth="max-w-[150px]" />
         ) : (
@@ -271,7 +271,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
 
                 {/* Recommended Factors */}
                 <div className="bg-surface shadow rounded-lg p-4 border border-border">
-                    <h3 className="text-h4 text-text-primary mb-3">{t.recommendedFactors}**</h3>
+                    <h3 className="text-h4 text-text-primary mb-3">{t.recommendedFactors}<span className="text-green-600">**</span></h3>
 
                     {/* Factors as Tags - compact layout */}
                     <div className="flex flex-wrap gap-2 mb-3">
@@ -287,8 +287,8 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
 
                     {/* Hints - compact */}
                     <p className="text-xs text-text-secondary leading-relaxed">
-                        * {t.pValueHint}<br/>
-                        ** {t.recommendedFactorsHint}
+                        <span className="text-green-600 font-bold">*</span> {t.pValueHint}<br/>
+                        <span className="text-green-600 font-bold">**</span> {t.recommendedFactorsHint}
                     </p>
                 </div>
             </div>

@@ -38,6 +38,11 @@ interface CrossValidationProps {
     setSelectedFactors: (value: SelectOption[]) => void;
     results: CrossValidationResults | null;
     setResults: (value: CrossValidationResults | null) => void;
+    // Processing state from App.tsx (survives tab switches)
+    isProcessing: boolean;
+    processingError: string | null;
+    onStartTask: (taskId: string) => void;
+    onClearError: () => void;
 }
 
 const CrossValidation: React.FC<CrossValidationProps> = ({
@@ -52,6 +57,10 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
     setSelectedFactors,
     results,
     setResults,
+    isProcessing,
+    processingError,
+    onStartTask,
+    onClearError,
 }) => {
     const { t } = useApp();
 
@@ -77,9 +86,15 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
     const [loadingTraits, setLoadingTraits] = useState(false);
     const [loadingFactors, setLoadingFactors] = useState(false);
     const [loadingMaskOptions, setLoadingMaskOptions] = useState(false);
-    const [isValidating, setIsValidating] = useState(false);
 
-    const [error, setError] = useState<string | null>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
+
+    // Combined error from processing or local validation
+    const error = processingError || localError;
+    const setError = (err: string | null) => {
+        if (processingError) onClearError();
+        setLocalError(err);
+    };
 
     // --- Effects ---
 
@@ -140,6 +155,14 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         }
     }, [selectedBreed, initialFactors]);
 
+    // Auto-scroll to results when they arrive
+    useEffect(() => {
+        if (results) {
+            setTimeout(() => {
+                document.getElementById('cv-results')?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        }
+    }, [results]);
 
     // When masking mode changes, load options
     // - 'farm' mode: load allowed farm names from CSV
@@ -210,8 +233,6 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
             return;
         }
 
-        setIsValidating(true);
-        setResults(null);
         setError(null);
 
         try {
@@ -224,11 +245,13 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                 mode: maskingMode!,
                 value: ['sex', 'farm', 'year'].includes(maskingMode!) ? maskingValue : undefined,
                 fraction: maskingMode === 'random' ? maskingFraction : undefined,
+                seed: 42,
             };
 
             const breedDbName = selectedBreed?.code || 'bmk_yy';
 
-            const data = await ApiService.runCrossValidationComplete(
+            // Submit task and get taskId
+            const taskId = await ApiService.runCrossValidation(
                 breedDbName,
                 selectedBreed?.id || '',
                 { code: selectedTrait?.code || selectedTrait?.label || '' },
@@ -236,16 +259,11 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                 criteria
             );
 
-            setResults(data);
-
-            setTimeout(() => {
-                document.getElementById('cv-results')?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
+            // Start polling in App.tsx - results will be set automatically when ready
+            onStartTask(taskId);
         } catch (err: any) {
             console.error('Cross-validation failed:', err);
             setError(err.message || 'Cross-validation failed');
-        } finally {
-            setIsValidating(false);
         }
     };
 
@@ -423,7 +441,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
             <div className="flex justify-end">
                 <Button
                     onClick={handleRunValidation}
-                    isLoading={isValidating}
+                    isLoading={isProcessing}
                     className="px-8 py-3 text-base"
                     icon={<FlaskConical className="w-5 h-5" />}
                     loadingText={t.processing}
@@ -443,33 +461,33 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                     {/* Statistics Table */}
                     <div className="mb-8">
                         <h3 className="text-md font-medium text-text-primary mb-4">{t.groupStatistics}</h3>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto border border-border rounded-lg overflow-hidden">
                             <table className="min-w-full divide-y divide-border">
-                                <thead className="bg-elevated">
+                                <thead>
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase">{t.group}</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">{t.count}</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">{t.mean}</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">{t.stdDev}</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">{t.min}</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase">{t.max}</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.group}</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.count}</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.mean}</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.stdDev}</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.min}</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle">{t.max}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
                                     <tr className="bg-elevated">
-                                        <td className="px-4 py-3 font-medium text-text-primary">{t.masked}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked?.count ?? 'N/A'}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.mean)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.std)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.min)}</td>
+                                        <td className="px-4 py-3 font-medium text-text-primary border-r border-border">{t.masked}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{results.stats.masked?.count ?? 'N/A'}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.masked?.mean)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.masked?.std)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.masked?.min)}</td>
                                         <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.max)}</td>
                                     </tr>
                                     <tr className="bg-surface">
-                                        <td className="px-4 py-3 font-medium text-text-primary">{t.unmasked}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked?.count ?? 'N/A'}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.mean)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.std)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.min)}</td>
+                                        <td className="px-4 py-3 font-medium text-text-primary border-r border-border">{t.unmasked}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{results.stats.unmasked?.count ?? 'N/A'}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.unmasked?.mean)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.unmasked?.std)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.unmasked?.min)}</td>
                                         <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.max)}</td>
                                     </tr>
                                 </tbody>

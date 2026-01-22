@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dna, Activity, FlaskConical } from 'lucide-react';
 import FactorAnalysis from './pages/FactorAnalysis';
 import CrossValidation from './pages/CrossValidation';
@@ -6,9 +6,17 @@ import MaxDataTest from './pages/MaxDataTest';
 import { SelectOption, AnalysisResults, CrossValidationResults } from './types';
 import { SettingsDropdown } from './components/SettingsDropdown';
 import { useApp } from './contexts/AppContext';
+import { ApiService } from './services/api';
 
 type TabType = 'factor-analysis' | 'cross-validation';
 type RouteType = 'main' | 'test-max-data';
+
+// Processing state for tasks that survive tab switches
+interface ProcessingState {
+    taskId: string | null;
+    isProcessing: boolean;
+    error: string | null;
+}
 
 const App: React.FC = () => {
     const { t } = useApp();
@@ -38,6 +46,7 @@ const App: React.FC = () => {
     const [faSelectedTrait, setFaSelectedTrait] = useState<SelectOption | null>(null);
     const [faSelectedFactors, setFaSelectedFactors] = useState<SelectOption[]>([]);
     const [faResults, setFaResults] = useState<AnalysisResults | null>(null);
+    const [faAvailableFactors, setFaAvailableFactors] = useState<SelectOption[]>([]); // For factor name mapping
 
     // Separate state for Cross-Validation tab
     const [cvSelectedDb, setCvSelectedDb] = useState<SelectOption | null>(null);
@@ -45,6 +54,190 @@ const App: React.FC = () => {
     const [cvSelectedTrait, setCvSelectedTrait] = useState<SelectOption | null>(null);
     const [cvSelectedFactors, setCvSelectedFactors] = useState<SelectOption[]>([]);
     const [cvResults, setCvResults] = useState<CrossValidationResults | null>(null);
+
+    // Processing state that survives tab switches
+    const [faProcessing, setFaProcessing] = useState<ProcessingState>({
+        taskId: null,
+        isProcessing: false,
+        error: null,
+    });
+    const [cvProcessing, setCvProcessing] = useState<ProcessingState>({
+        taskId: null,
+        isProcessing: false,
+        error: null,
+    });
+
+    // Helper function to transform raw results with factor name mapping
+    const transformFaResults = useCallback((rawResult: any, taskId: string, allFactors: SelectOption[]): AnalysisResults => {
+        // Build code-to-name mapping for factors
+        const factorCodeToName: Record<string, string> = {};
+        allFactors.forEach((f) => {
+            const code = (f.code || f.label).toLowerCase();
+            factorCodeToName[code] = f.label;
+        });
+
+        // Helper function to get factor name from code
+        const getFactorName = (code: string): string => {
+            const lowerCode = code.toLowerCase();
+            return factorCodeToName[lowerCode] || code;
+        };
+
+        return {
+            id: taskId,
+            status: 'success',
+            factorEffects: rawResult.factor_effect?.map((e: any) => ({
+                factor: getFactorName(e.factor),
+                effect: e.effect,
+                r2: e.r2 || 0,
+                pValue: e.p_value,
+                significant: e.significant,
+                isCategorical: e.is_categorical,
+            })) || [],
+            correlations: rawResult.factor_corr?.map((c: any) => ({
+                factor1: getFactorName(c.factor_1),
+                factor2: getFactorName(c.factor_2),
+                correlation: c.corr,
+                pValue: c.p_value,
+                highCorr: c.high_corr,
+            })) || [],
+            modelAccuracy: rawResult.model_scores?.map((m: any) => ({
+                factors: m.factors.map((f: string) => getFactorName(f)),
+                r2: m.r2,
+            })) || [],
+            recommendedFactors: (rawResult.recommended_factors || []).map((f: string) => getFactorName(f)),
+            artifacts: rawResult.artifacts,
+            warnings: rawResult.warnings,
+        };
+    }, []);
+
+    // Poll for Factor Analysis task completion
+    useEffect(() => {
+        if (!faProcessing.taskId || !faProcessing.isProcessing) return;
+
+        let cancelled = false;
+        const pollTask = async () => {
+            try {
+                const status = await ApiService.pollTaskUntilComplete(faProcessing.taskId!);
+                if (cancelled) return;
+
+                if (status.status === 'error') {
+                    setFaProcessing(prev => ({
+                        ...prev,
+                        isProcessing: false,
+                        error: status.msg || 'Analysis failed',
+                    }));
+                    return;
+                }
+
+                // Get results
+                const rawResult = await ApiService.getTaskResult(faProcessing.taskId!);
+                if (cancelled) return;
+
+                // Transform results with factor name mapping
+                const transformedResults = transformFaResults(rawResult, faProcessing.taskId!, faAvailableFactors);
+                setFaResults(transformedResults);
+
+                setFaProcessing({
+                    taskId: null,
+                    isProcessing: false,
+                    error: null,
+                });
+            } catch (err: any) {
+                if (cancelled) return;
+                setFaProcessing(prev => ({
+                    ...prev,
+                    isProcessing: false,
+                    error: err.message || 'Analysis failed',
+                }));
+            }
+        };
+
+        pollTask();
+        return () => { cancelled = true; };
+    }, [faProcessing.taskId, faProcessing.isProcessing, faAvailableFactors, transformFaResults]);
+
+    // Auto-scroll to results when FA results arrive
+    useEffect(() => {
+        if (faResults && activeTab === 'factor-analysis') {
+            setTimeout(() => {
+                document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        }
+    }, [faResults, activeTab]);
+
+    // Poll for Cross-Validation task completion
+    useEffect(() => {
+        if (!cvProcessing.taskId || !cvProcessing.isProcessing) return;
+
+        let cancelled = false;
+        const pollTask = async () => {
+            try {
+                const status = await ApiService.pollTaskUntilComplete(cvProcessing.taskId!);
+                if (cancelled) return;
+
+                if (status.status === 'error') {
+                    setCvProcessing(prev => ({
+                        ...prev,
+                        isProcessing: false,
+                        error: status.msg || 'Cross-validation failed',
+                    }));
+                    return;
+                }
+
+                // Get results
+                const result = await ApiService.getTaskResult(cvProcessing.taskId!) as CrossValidationResults;
+                if (cancelled) return;
+
+                setCvResults(result);
+                setCvProcessing({
+                    taskId: null,
+                    isProcessing: false,
+                    error: null,
+                });
+            } catch (err: any) {
+                if (cancelled) return;
+                setCvProcessing(prev => ({
+                    ...prev,
+                    isProcessing: false,
+                    error: err.message || 'Cross-validation failed',
+                }));
+            }
+        };
+
+        pollTask();
+        return () => { cancelled = true; };
+    }, [cvProcessing.taskId, cvProcessing.isProcessing]);
+
+    // Start Factor Analysis task
+    const startFaTask = useCallback((taskId: string, availableFactors: SelectOption[]) => {
+        setFaAvailableFactors(availableFactors);
+        setFaResults(null);
+        setFaProcessing({
+            taskId,
+            isProcessing: true,
+            error: null,
+        });
+    }, []);
+
+    // Start Cross-Validation task
+    const startCvTask = useCallback((taskId: string) => {
+        setCvResults(null);
+        setCvProcessing({
+            taskId,
+            isProcessing: true,
+            error: null,
+        });
+    }, []);
+
+    // Clear FA error
+    const clearFaError = useCallback(() => {
+        setFaProcessing(prev => ({ ...prev, error: null }));
+    }, []);
+
+    // Clear CV error
+    const clearCvError = useCallback(() => {
+        setCvProcessing(prev => ({ ...prev, error: null }));
+    }, []);
 
     const handleNavigateToCrossVal = (factors: string[]) => {
         setRecommendedFactors(factors);
@@ -186,6 +379,10 @@ const App: React.FC = () => {
                         setSelectedFactors={setFaSelectedFactors}
                         results={faResults}
                         setResults={setFaResults}
+                        isProcessing={faProcessing.isProcessing}
+                        processingError={faProcessing.error}
+                        onStartTask={startFaTask}
+                        onClearError={clearFaError}
                     />
                 )}
                 {activeTab === 'cross-validation' && (
@@ -201,6 +398,10 @@ const App: React.FC = () => {
                         setSelectedFactors={setCvSelectedFactors}
                         results={cvResults}
                         setResults={setCvResults}
+                        isProcessing={cvProcessing.isProcessing}
+                        processingError={cvProcessing.error}
+                        onStartTask={startCvTask}
+                        onClearError={clearCvError}
                     />
                 )}
             </main>

@@ -4,7 +4,7 @@ import { SelectOption, AnalysisResults } from '../types';
 import { SingleSelect, MultiSelect, Checkbox, Button } from '../components/UI';
 import { ResultsView } from '../components/ResultsView';
 import { Activity, Save, X } from 'lucide-react';
-import { isHiddenFactor } from '../utils/tableResolver';
+import { isHiddenFactor, resolveTableName } from '../utils/tableResolver';
 import { useApp } from '../contexts/AppContext';
 
 interface FactorAnalysisProps {
@@ -20,6 +20,11 @@ interface FactorAnalysisProps {
     setSelectedFactors: (value: SelectOption[]) => void;
     results: AnalysisResults | null;
     setResults: (value: AnalysisResults | null) => void;
+    // Processing state from App.tsx (survives tab switches)
+    isProcessing: boolean;
+    processingError: string | null;
+    onStartTask: (taskId: string, availableFactors: SelectOption[]) => void;
+    onClearError: () => void;
 }
 
 const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
@@ -34,6 +39,10 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
     setSelectedFactors,
     results,
     setResults,
+    isProcessing,
+    processingError,
+    onStartTask,
+    onClearError,
 }) => {
     const { t } = useApp();
 
@@ -49,13 +58,19 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
     const [loadingBreeds, setLoadingBreeds] = useState(false);
     const [loadingTraits, setLoadingTraits] = useState(false);
     const [loadingFactors, setLoadingFactors] = useState(false);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    const [error, setError] = useState<string | null>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [analysisName, setAnalysisName] = useState('');
+
+    // Combined error from processing or local validation
+    const error = processingError || localError;
+    const setError = (err: string | null) => {
+        if (processingError) onClearError();
+        setLocalError(err);
+    };
 
     // --- Effects (Data Fetching Chain) ---
 
@@ -128,37 +143,40 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
             return;
         }
 
-        setIsAnalyzing(true);
-        setResults(null);
         setError(null);
-        
+
         try {
             // Use the breed's database (stored in code field)
             const breedDbName = selectedBreed?.code || 'bmk_yy';
 
-            const data = await ApiService.runAnalysis(
-                selectedFactors.map(f => f.id),
-                analyzeAll,
+            // Prepare factors with table resolution
+            const factors = selectedFactors.map(f => ({
+                code: f.code || f.label,
+                type: 'cross',
+                table: resolveTableName(f),
+                label: f.label,
+            }));
+
+            const traitWithTable = {
+                code: selectedTrait?.code || selectedTrait?.label || '',
+                table: resolveTableName(selectedTrait),
+                label: selectedTrait?.label,
+            };
+
+            // Submit task to API
+            const taskId = await ApiService.runFactorAnalysis(
                 breedDbName,
                 selectedBreed?.id || '',
-                {
-                    code: selectedTrait?.code || selectedTrait?.label || '',
-                    type: selectedTrait?.type, // Pass the type field which contains the table name
-                    name: selectedTrait?.label  // Russian display name for reports
-                },
-                availableFactors
+                traitWithTable,
+                factors,
+                { analyzeAllCombinations: analyzeAll }
             );
-            setResults(data);
-            
-            // Scroll to results
-            setTimeout(() => {
-                document.getElementById('results-section')?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
+
+            // Start polling in App.tsx - pass availableFactors for result transformation
+            onStartTask(taskId, availableFactors);
         } catch (err: any) {
             console.error("Analysis failed", err);
             setError(err.message || 'Analysis failed. Please try again.');
-        } finally {
-            setIsAnalyzing(false);
         }
     };
 
@@ -319,7 +337,7 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
 
                                 <Button
                                     onClick={handleRunAnalysis}
-                                    isLoading={isAnalyzing}
+                                    isLoading={isProcessing}
                                     className="md:w-auto w-full h-12 text-base shadow-md md:px-8"
                                     icon={<Activity className="w-5 h-5" />}
                                     loadingText={t.processing}
