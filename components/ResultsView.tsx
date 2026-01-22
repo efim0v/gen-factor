@@ -13,35 +13,104 @@ interface ResultsViewProps {
 interface TableHeaderProps {
     children: React.ReactNode;
     tooltip?: boolean;
+    className?: string;
 }
 
-// Helper for table headers
-const TableHeader: React.FC<TableHeaderProps> = ({ children, tooltip = false }) => (
-    <th className="px-6 py-3 text-left type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-r border-border last:border-r-0">
-        {tooltip && typeof children === 'string' ? (
-            <TooltipText text={children} maxWidth="max-w-[120px]" className="text-white dark:text-[#1a1a1a]" />
-        ) : (
-            children
-        )}
-    </th>
-);
+// Helper for table headers - reduced padding for compactness
+const TableHeader: React.FC<TableHeaderProps> = ({ children, tooltip = false, className = '' }) => {
+    return (
+        <th className={`px-1.5 py-2 text-left type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-r border-border last:border-r-0 ${className}`}>
+            {tooltip && typeof children === 'string' ? (
+                <TooltipText text={children} maxWidth="max-w-[120px]" className="text-white dark:text-[#1a1a1a]" />
+            ) : (
+                children
+            )}
+        </th>
+    );
+};
 
 interface TableCellProps {
     children: React.ReactNode;
     highlight?: boolean;
     tooltip?: boolean;
+    className?: string;
+    wrap?: boolean;
 }
 
-// Helper for table cells
-const TableCell: React.FC<TableCellProps> = ({ children, highlight = false, tooltip = false }) => (
-    <td className={`px-6 py-4 text-body text-text-primary border-b border-border ${highlight ? 'font-semibold' : ''}`}>
+// Helper for table cells - reduced padding, adaptive width
+const TableCell: React.FC<TableCellProps> = ({ children, highlight = false, tooltip = false, className = '', wrap = false }) => (
+    <td className={`px-1.5 py-2 text-body text-text-primary border-b border-border ${highlight ? 'font-semibold' : ''} ${className}`}>
         {tooltip && typeof children === 'string' ? (
             <TooltipText text={children} maxWidth="max-w-[150px]" />
         ) : (
-            <span className="whitespace-nowrap">{children}</span>
+            <span className={wrap ? 'break-words' : 'whitespace-nowrap'}>{children}</span>
         )}
     </td>
 );
+
+/**
+ * Format p-value preserving full precision for scientific comparison.
+ * Shows actual values like 1.23e-17 vs 4.56e-20 so users can see the difference.
+ */
+const formatPValue = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value !== 'number' || isNaN(value)) return '—';
+
+    // For zero (underflow from extremely small values like < 1e-324), show "< 1e-300"
+    if (value === 0) {
+        return '< 1e-300';
+    }
+
+    // For exactly 1.0 (factor has no effect), show "1.0"
+    if (value === 1.0) {
+        return '1.0';
+    }
+
+    // For very small values, use scientific notation with full precision
+    // This preserves the difference between 1e-17 and 1e-20
+    if (value < 0.0001) {
+        // Use toExponential with enough precision to show meaningful differences
+        // Get the natural precision of the number
+        const exp = Math.floor(Math.log10(Math.abs(value)));
+        const mantissa = value / Math.pow(10, exp);
+
+        // Show 2 decimal places in mantissa (e.g., 1.23e-17)
+        return `${mantissa.toFixed(2)}e${exp}`;
+    }
+
+    // For values close to 1, show with 4 decimal places
+    if (value >= 0.9999) {
+        return value.toFixed(4);
+    }
+
+    // For regular values, use 4 decimal places
+    return value.toFixed(4);
+};
+
+/**
+ * Format general numeric values (effect, correlation) - legacy function
+ */
+const formatScientific = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value !== 'number' || isNaN(value)) return '—';
+
+    // For very small values, use scientific notation
+    if (Math.abs(value) < 0.0001 && value !== 0) {
+        return value.toExponential(2);
+    }
+
+    // For regular values, use 4 decimal places
+    return value.toFixed(4);
+};
+
+/**
+ * Format R² value as percentage or decimal
+ */
+const formatR2 = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value !== 'number' || isNaN(value)) return '—';
+    return (value * 100).toFixed(1) + '%';
+};
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, isDownloading }) => {
     const { t } = useApp();
@@ -55,38 +124,65 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
         return Array.from(factorSet).sort();
     }, [results.modelAccuracy]);
 
-    // Sort model accuracy by number of factors (ascending)
+    // Sort model accuracy in "staircase" pattern:
+    // 1. Sort by number of factors (ascending)
+    // 2. Within same count, sort by R² (descending)
+    // 3. Arrange factors to create visual staircase pattern
     const sortedModelAccuracy = React.useMemo(() => {
-        return [...results.modelAccuracy].sort((a, b) => a.factors.length - b.factors.length);
+        const sorted = [...results.modelAccuracy].sort((a, b) => {
+            // First by number of factors (ascending)
+            if (a.factors.length !== b.factors.length) {
+                return a.factors.length - b.factors.length;
+            }
+            // Then by R² (descending)
+            return (b.r2 || 0) - (a.r2 || 0);
+        });
+        return sorted;
     }, [results.modelAccuracy]);
 
-    return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h2 className="text-h2 text-text-primary text-center mb-8">{t.analysisResults}</h2>
+    // Determine factor order for staircase display
+    const orderedFactors = React.useMemo(() => {
+        // Build factor order based on first appearance in sorted results
+        const factorOrder: string[] = [];
+        sortedModelAccuracy.forEach(model => {
+            model.factors.forEach(factor => {
+                if (!factorOrder.includes(factor)) {
+                    factorOrder.push(factor);
+                }
+            });
+        });
+        return factorOrder;
+    }, [sortedModelAccuracy]);
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Table 1: Factor Effect */}
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h2 className="text-h2 text-text-primary text-center mb-6">{t.analysisResults}</h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Table 1: Factor Effect - now with R² column */}
                 <div className="bg-surface shadow rounded-lg overflow-hidden border border-border">
-                    <h3 className="px-6 py-4 text-h4 text-text-primary bg-elevated border-b border-border">
+                    <h3 className="px-4 py-3 text-h4 text-text-primary bg-elevated border-b border-border">
                         {t.factorEffects}
                     </h3>
                     <div className="overflow-auto max-h-96">
-                        <table className="min-w-full">
+                        <table className="min-w-full table-auto">
                             <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <TableHeader>{t.factor}</TableHeader>
-                                    <TableHeader>{t.effect}</TableHeader>
-                                    <TableHeader>{t.pValue}</TableHeader>
+                                    <TableHeader className="min-w-[100px]">{t.factor}</TableHeader>
+                                    <TableHeader className="w-20">{t.effect}</TableHeader>
+                                    <TableHeader className="w-20 text-center">R²</TableHeader>
+                                    <TableHeader className="w-24">{t.pValue}</TableHeader>
                                 </tr>
                             </thead>
                             <tbody className="bg-surface divide-y divide-border">
                                 {results.factorEffects.map((row, idx) => (
                                     <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
-                                        <TableCell highlight tooltip>{row.factor}</TableCell>
-                                        <TableCell>{row.effect}</TableCell>
+                                        <TableCell highlight wrap>{row.factor}</TableCell>
+                                        <TableCell>{row.effect !== null && row.effect !== undefined ? formatScientific(row.effect) : '—'}</TableCell>
+                                        <TableCell className="font-medium text-center">{formatR2(row.r2)}</TableCell>
                                         <TableCell>
-                                            {row.pValue}
-                                            {row.pValue < 0.05 && <span className="font-bold ml-1">*</span>}
+                                            {formatPValue(row.pValue)}
+                                            {row.pValue < 0.05 && <span className="font-bold ml-1 text-green-600">*</span>}
                                         </TableCell>
                                     </tr>
                                 ))}
@@ -97,28 +193,28 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
 
                 {/* Table 2: Correlation */}
                 <div className="bg-surface shadow rounded-lg overflow-hidden border border-border">
-                    <h3 className="px-6 py-4 text-h4 text-text-primary bg-elevated border-b border-border">
+                    <h3 className="px-4 py-3 text-h4 text-text-primary bg-elevated border-b border-border">
                         {t.correlations}
                     </h3>
                     <div className="overflow-auto max-h-96">
-                        <table className="min-w-full">
+                        <table className="min-w-full table-auto">
                             <thead className="sticky top-0 z-10">
                                 <tr>
-                                    <TableHeader>{t.factor1}</TableHeader>
-                                    <TableHeader>{t.factor2}</TableHeader>
-                                    <TableHeader>{t.correlation}</TableHeader>
-                                    <TableHeader>{t.pValue}</TableHeader>
+                                    <TableHeader className="min-w-[80px]">{t.factor1}</TableHeader>
+                                    <TableHeader className="min-w-[80px]">{t.factor2}</TableHeader>
+                                    <TableHeader className="w-20">{t.correlation}</TableHeader>
+                                    <TableHeader className="w-24">{t.pValue}</TableHeader>
                                 </tr>
                             </thead>
                             <tbody className="bg-surface divide-y divide-border">
                                 {results.correlations.map((row, idx) => (
                                     <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
-                                        <TableCell tooltip>{row.factor1}</TableCell>
-                                        <TableCell tooltip>{row.factor2}</TableCell>
-                                        <TableCell>{row.correlation}</TableCell>
+                                        <TableCell wrap>{row.factor1}</TableCell>
+                                        <TableCell wrap>{row.factor2}</TableCell>
+                                        <TableCell>{formatScientific(row.correlation)}</TableCell>
                                         <TableCell>
-                                            {row.pValue}
-                                            {row.pValue < 0.05 && <span className="font-bold ml-1">*</span>}
+                                            {formatPValue(row.pValue)}
+                                            {row.pValue < 0.05 && <span className="font-bold ml-1 text-green-600">*</span>}
                                         </TableCell>
                                     </tr>
                                 ))}
@@ -128,75 +224,69 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                 {/* Table 3: Model Accuracy */}
-                 <div className="bg-surface shadow rounded-lg overflow-hidden border border-border h-fit">
-                    <h3 className="px-6 py-4 text-h4 text-text-primary bg-elevated border-b border-border">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Table 3: Model Accuracy */}
+                <div className="bg-surface shadow rounded-lg overflow-hidden border border-border">
+                    <h3 className="px-4 py-3 text-h4 text-text-primary bg-elevated border-b border-border">
                         {t.modelAccuracy}
                     </h3>
                     <div className="overflow-auto max-h-96">
-                        <table className="min-w-full">
+                        <table className="min-w-full table-auto">
                             <thead className="sticky top-0 z-10">
                                 <tr>
-                                    {allFactors.map(factor => (
-                                        <TableHeader key={factor} tooltip>{factor}</TableHeader>
-                                    ))}
-                                    <th className="sticky right-0 px-6 py-3 text-left type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-l-2 border-border-strong">
-                                        R²
-                                    </th>
+                                    {orderedFactors.map((factor) => {
+                                        // Split factor name by spaces to put each word on a new line
+                                        const words = factor.split(' ');
+                                        return (
+                                            <th key={factor} className="px-1.5 py-2 text-center type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-r border-border last:border-r-0 min-w-[80px]">
+                                                {words.map((word, idx) => (
+                                                    <div key={idx} className="whitespace-nowrap">
+                                                        {word}
+                                                    </div>
+                                                ))}
+                                            </th>
+                                        );
+                                    })}
+                                    <TableHeader className="w-20 text-center">R²</TableHeader>
                                 </tr>
                             </thead>
                             <tbody className="bg-surface divide-y divide-border">
-                                {sortedModelAccuracy.map((row, idx) => {
-                                    const rowBg = idx % 2 === 0 ? 'bg-elevated' : 'bg-surface';
-                                    return (
-                                        <tr key={idx}>
-                                            {allFactors.map(factor => {
-                                                const hasFactor = row.factors.includes(factor);
-                                                return (
-                                                    <td
-                                                        key={factor}
-                                                        className={`px-6 py-4 text-body border-b border-border text-center ${
-                                                            hasFactor
-                                                                ? `${rowBg} text-text-primary font-medium`
-                                                                : 'bg-page'
-                                                        }`}
-                                                    >
-                                                        {hasFactor ? (
-                                                            <TooltipText text={factor} maxWidth="max-w-[100px]" className="mx-auto" />
-                                                        ) : ''}
-                                                    </td>
-                                                );
-                                            })}
-                                            <td className={`sticky right-0 px-6 py-4 whitespace-nowrap text-body-lg font-extrabold text-text-primary border-b border-border border-l-2 border-border-strong ${rowBg}`}>
-                                                {row.r2}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {sortedModelAccuracy.map((row, idx) => (
+                                    <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
+                                        {orderedFactors.map(factor => {
+                                            const hasFactor = row.factors.includes(factor);
+                                            return (
+                                                <TableCell key={factor} className={`text-center ${!hasFactor ? 'opacity-30' : ''}`}>
+                                                    {hasFactor ? '✓' : ''}
+                                                </TableCell>
+                                            );
+                                        })}
+                                        <TableCell className="font-medium text-center">{formatR2(row.r2)}</TableCell>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
                 {/* Recommended Factors */}
-                <div className="bg-surface shadow rounded-lg p-6 border border-border">
-                    <h3 className="text-h4 text-text-primary mb-4">{t.recommendedFactors}**</h3>
+                <div className="bg-surface shadow rounded-lg p-4 border border-border">
+                    <h3 className="text-h4 text-text-primary mb-3">{t.recommendedFactors}**</h3>
 
-                    {/* Factors as Tags */}
-                    <div className="flex flex-wrap gap-2 mb-4">
+                    {/* Factors as Tags - compact layout */}
+                    <div className="flex flex-wrap gap-2 mb-3">
                         {results.recommendedFactors.map((factor, idx) => (
                             <span
                                 key={idx}
-                                className="inline-flex items-center px-4 py-2 rounded-lg text-body-lg bg-elevated text-text-primary border border-border max-w-[250px]"
+                                className="inline-flex items-center px-3 py-1.5 rounded-lg text-body bg-elevated text-text-primary border border-border"
                             >
-                                <TooltipText text={factor} maxWidth="max-w-[220px]" />
+                                {factor}
                             </span>
                         ))}
                     </div>
 
-                    {/* Hints */}
-                    <p className="text-caption text-text-secondary leading-relaxed">
+                    {/* Hints - compact */}
+                    <p className="text-xs text-text-secondary leading-relaxed">
                         * {t.pValueHint}<br/>
                         ** {t.recommendedFactorsHint}
                     </p>

@@ -4,7 +4,7 @@ import { SelectOption, AnalysisResults } from '../types';
 import { SingleSelect, MultiSelect, Checkbox, Button } from '../components/UI';
 import { ResultsView } from '../components/ResultsView';
 import { Activity, Save, X } from 'lucide-react';
-import { resolveTableName, isReproductionFactorDisallowed } from '../utils/tableResolver';
+import { isHiddenFactor } from '../utils/tableResolver';
 import { useApp } from '../contexts/AppContext';
 
 interface FactorAnalysisProps {
@@ -56,14 +56,13 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [analysisName, setAnalysisName] = useState('');
-    const traitTable = selectedTrait ? resolveTableName(selectedTrait) : null;
 
     // --- Effects (Data Fetching Chain) ---
 
-    // 1. Initial Load: Databases
+    // 1. Initial Load: Companies (hardcoded list for UI)
     useEffect(() => {
         setLoadingDb(true);
-        ApiService.getDatabases()
+        ApiService.getCompanies()
             .then(setDatabases)
             .catch((err) => setError(err.message))
             .finally(() => setLoadingDb(false));
@@ -112,17 +111,6 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
         }
     }, [selectedBreed]);
 
-    useEffect(() => {
-        if (!traitTable || traitTable === 'reproduction') {
-            return;
-        }
-        setSelectedFactors((current) => {
-            const next = current.filter(
-                (factor) => !isReproductionFactorDisallowed(traitTable, resolveTableName(factor))
-            );
-            return next.length === current.length ? current : next;
-        });
-    }, [availableFactors, traitTable]);
 
     // --- Handlers ---
 
@@ -155,7 +143,8 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
                 selectedBreed?.id || '',
                 {
                     code: selectedTrait?.code || selectedTrait?.label || '',
-                    type: selectedTrait?.type // Pass the type field which contains the table name
+                    type: selectedTrait?.type, // Pass the type field which contains the table name
+                    name: selectedTrait?.label  // Russian display name for reports
                 },
                 availableFactors
             );
@@ -227,21 +216,11 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
     // --- Render Helpers ---
     const showFactorsBlock = !!selectedDb;
     const filteredFactors = useMemo(() => {
-        if (!traitTable || traitTable === 'reproduction') {
-            return availableFactors;
-        }
+        // Filter out hidden factors (like "farm")
         return availableFactors.filter((factor) =>
-            !isReproductionFactorDisallowed(traitTable, resolveTableName(factor))
+            !isHiddenFactor(factor.code || factor.label)
         );
-    }, [availableFactors, traitTable]);
-    const hiddenReproductionCount = useMemo(() => {
-        if (!traitTable || traitTable === 'reproduction') {
-            return 0;
-        }
-        return availableFactors.filter((factor) =>
-            isReproductionFactorDisallowed(traitTable, resolveTableName(factor))
-        ).length;
-    }, [availableFactors, traitTable]);
+    }, [availableFactors]);
 
     return (
         <div className="space-y-8">
@@ -322,11 +301,6 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
                                 loadingText={t.loading}
                                 emptyText={t.factorsNotFound}
                             />
-                            {hiddenReproductionCount > 0 && (
-                                <p className="mt-2 text-xs text-text-secondary">
-                                    {hiddenReproductionCount} {t.hiddenReproductionFactors}
-                                </p>
-                            )}
                         </div>
 
                         {/* Analysis Options */}

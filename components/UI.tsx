@@ -203,8 +203,8 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                         <span className="text-text-tertiary py-0.5">{placeholder}</span>
                     )}
                     {selected.map(item => (
-                        <span key={item.id} className="inline-flex items-center px-3 py-1.5 rounded-md text-base font-medium bg-surface border border-border text-text-primary max-w-[200px]">
-                            <TooltipText text={item.label} maxWidth="max-w-[150px]" />
+                        <span key={item.id} className="inline-flex items-center px-3 py-1.5 rounded-md text-base font-medium bg-surface border border-border text-text-primary">
+                            <span>{item.label}</span>
                             <button
                                 onClick={(e) => removeOption(e, item.id)}
                                 className="ml-2 hover:text-text-primary focus:outline-none flex-shrink-0"

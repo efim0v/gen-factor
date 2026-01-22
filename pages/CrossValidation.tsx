@@ -3,10 +3,27 @@ import { ApiService } from '../services/api';
 import { SelectOption, CrossValidationResults, SavedFactorAnalysis } from '../types';
 import { SingleSelect, MultiSelect, Button } from '../components/UI';
 import { FlaskConical, BookOpen, TrendingUp } from 'lucide-react';
-import { resolveTableName, isReproductionFactorDisallowed } from '../utils/tableResolver';
+import { isHiddenFactor } from '../utils/tableResolver';
 import { useApp } from '../contexts/AppContext';
 
-type MaskingMode = 'sex' | 'year' | 'farm' | 'random';
+// Masking modes: farm (from allowed farms CSV), year (month.year only), sex, random
+type MaskingMode = 'sex' | 'farm' | 'year' | 'random';
+
+// Safe number formatting helper - handles undefined/null values
+const safeToFixed = (value: number | undefined | null, decimals: number = 3, fallback: string = 'N/A'): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return fallback;
+    }
+    return value.toFixed(decimals);
+};
+
+// Safe percentage formatting helper
+const safePercent = (value: number | undefined | null, decimals: number = 1, fallback: string = 'N/A'): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return fallback;
+    }
+    return (value * 100).toFixed(decimals) + '%';
+};
 
 interface CrossValidationProps {
     initialFactors?: string[];
@@ -63,14 +80,13 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
     const [isValidating, setIsValidating] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
-    const traitTable = selectedTrait ? resolveTableName(selectedTrait) : null;
 
     // --- Effects ---
 
-    // Initial Load
+    // Initial Load: Companies (hardcoded list for UI)
     useEffect(() => {
         setLoadingDb(true);
-        ApiService.getDatabases()
+        ApiService.getCompanies()
             .then(setDatabases)
             .catch((err) => setError(err.message))
             .finally(() => setLoadingDb(false));
@@ -124,27 +140,20 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         }
     }, [selectedBreed, initialFactors]);
 
-    useEffect(() => {
-        if (!traitTable || traitTable === 'reproduction') {
-            return;
-        }
-        setSelectedFactors((current) => {
-            const next = current.filter(
-                (factor) => !isReproductionFactorDisallowed(traitTable, resolveTableName(factor))
-            );
-            return next.length === current.length ? current : next;
-        });
-    }, [availableFactors, traitTable]);
 
     // When masking mode changes, load options
+    // - 'farm' mode: load allowed farm names from CSV
+    // - 'year' mode: load unique month_year values (e.g., "01.2018")
+    // - 'sex' mode: load sex values
     useEffect(() => {
-        if (selectedBreed && selectedBreed.code && maskingMode && ['sex', 'year', 'farm'].includes(maskingMode)) {
+        if (selectedBreed && selectedBreed.code && maskingMode && ['sex', 'farm', 'year'].includes(maskingMode)) {
             setLoadingMaskOptions(true);
             setMaskingOptions([]);
             setMaskingValue('');
 
             const breedDbName = selectedBreed.code;
-            const field = maskingMode === 'year' ? 'farm_year' : maskingMode;
+            // Map maskingMode to API field parameter
+            const field = maskingMode === 'year' ? 'month_year' : maskingMode === 'farm' ? 'farm' : maskingMode;
             ApiService.getMaskValues(breedDbName, selectedBreed.id, field as any)
                 .then(setMaskingOptions)
                 .catch((err) => console.error('Failed to load mask values:', err))
@@ -188,7 +197,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         if (!selectedTrait) return t.pleaseSelectTrait;
         if (selectedFactors.length === 0) return t.pleaseSelectFactor;
         if (!maskingMode) return t.pleaseSelectMaskingStrategy;
-        if (['sex', 'year', 'farm'].includes(maskingMode) && !maskingValue) {
+        if (['sex', 'farm', 'year'].includes(maskingMode) && !maskingValue) {
             return t.pleaseSelectMaskingValue;
         }
         return null;
@@ -213,7 +222,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
 
             const criteria = {
                 mode: maskingMode!,
-                value: ['sex', 'year', 'farm'].includes(maskingMode!) ? maskingValue : undefined,
+                value: ['sex', 'farm', 'year'].includes(maskingMode!) ? maskingValue : undefined,
                 fraction: maskingMode === 'random' ? maskingFraction : undefined,
             };
 
@@ -242,28 +251,19 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
 
     // --- Render ---
 
+    // Masking modes: farm (allowed farms only), month_year (date only), sex, random
     const maskingModes: { value: MaskingMode; labelKey: keyof typeof t; icon: string }[] = [
         { value: 'sex', labelKey: 'sex', icon: '♂♀' },
-        { value: 'year', labelKey: 'year', icon: '📅' },
-        { value: 'farm', labelKey: 'farm', icon: '🏠' },
+        { value: 'farm', labelKey: 'farm', icon: '🏭' },
+        { value: 'year', labelKey: 'monthYear', icon: '📅' },
         { value: 'random', labelKey: 'randomSample', icon: '🎲' },
     ];
     const filteredFactors = useMemo(() => {
-        if (!traitTable || traitTable === 'reproduction') {
-            return availableFactors;
-        }
+        // Filter out hidden factors (like "farm")
         return availableFactors.filter((factor) =>
-            !isReproductionFactorDisallowed(traitTable, resolveTableName(factor))
+            !isHiddenFactor(factor.code || factor.label)
         );
-    }, [availableFactors, traitTable]);
-    const hiddenReproductionCount = useMemo(() => {
-        if (!traitTable || traitTable === 'reproduction') {
-            return 0;
-        }
-        return availableFactors.filter((factor) =>
-            isReproductionFactorDisallowed(traitTable, resolveTableName(factor))
-        ).length;
-    }, [availableFactors, traitTable]);
+    }, [availableFactors]);
 
     return (
         <div className="space-y-8">
@@ -344,11 +344,6 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                     loadingText={t.loading}
                     emptyText={t.factorsNotFound}
                 />
-                {hiddenReproductionCount > 0 && (
-                    <p className="mt-2 text-caption text-text-secondary">
-                        {hiddenReproductionCount} {t.hiddenReproductionFactors}
-                    </p>
-                )}
             </section>
 
             {/* Section 2: Masking Strategy */}
@@ -379,10 +374,10 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                 {/* Strategy Parameters */}
                 {maskingMode && (
                     <div className="bg-elevated p-4 rounded-lg">
-                        {['sex', 'year', 'farm'].includes(maskingMode) && (
+                        {['sex', 'farm', 'year'].includes(maskingMode) && (
                             <div className="max-w-xs">
                                 <label className="block text-sm font-medium text-text-primary mb-2">
-                                    {t[maskingMode as 'sex' | 'year' | 'farm']}
+                                    {maskingMode === 'year' ? t.monthYear : maskingMode === 'farm' ? t.farm : t[maskingMode as 'sex']}
                                 </label>
                                 <select
                                     value={maskingValue}
@@ -463,19 +458,19 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                 <tbody className="divide-y divide-border">
                                     <tr className="bg-elevated">
                                         <td className="px-4 py-3 font-medium text-text-primary">{t.masked}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked.count}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked.mean.toFixed(3)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked.std.toFixed(3)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked.min.toFixed(3)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked.max.toFixed(3)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.masked?.count ?? 'N/A'}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.mean)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.std)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.min)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.masked?.max)}</td>
                                     </tr>
                                     <tr className="bg-surface">
                                         <td className="px-4 py-3 font-medium text-text-primary">{t.unmasked}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked.count}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked.mean.toFixed(3)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked.std.toFixed(3)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked.min.toFixed(3)}</td>
-                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked.max.toFixed(3)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{results.stats.unmasked?.count ?? 'N/A'}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.mean)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.std)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.min)}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary">{safeToFixed(results.stats.unmasked?.max)}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -489,7 +484,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                             <div className="bg-elevated p-6 rounded-xl border border-border">
                                 <div className="text-sm text-text-secondary font-medium mb-2">{t.r2EbvTrait}</div>
                                 <div className="text-4xl font-bold text-text-primary">
-                                    {(results.metrics.r2_corr_ebv_trait_masked * 100).toFixed(1)}%
+                                    {safePercent(results.metrics?.r2_corr_ebv_trait_masked)}
                                 </div>
                                 <div className="text-xs text-text-secondary mt-2">
                                     {t.r2EbvTraitDesc}
@@ -498,7 +493,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                             <div className="bg-elevated p-6 rounded-xl border border-border">
                                 <div className="text-sm text-text-secondary font-medium mb-2">{t.r2PhenotypeTrait}</div>
                                 <div className="text-4xl font-bold text-text-primary">
-                                    {(results.metrics.r2_corr_pred_trait_masked * 100).toFixed(1)}%
+                                    {safePercent(results.metrics?.r2_corr_pred_trait_masked)}
                                 </div>
                                 <div className="text-xs text-text-secondary mt-2">
                                     {t.r2PhenotypeTraitDesc}

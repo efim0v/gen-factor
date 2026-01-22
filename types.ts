@@ -39,9 +39,11 @@ export interface FactorOut {
 // Analysis Results Models
 export interface FactorEffect {
     factor: string;
-    effect: number;
+    effect: number | null;  // null for categorical factors (shown as "—")
+    r2: number;             // R² for individual factor
     pValue: number;
     significant?: boolean;
+    isCategorical?: boolean;
 }
 
 export interface Correlation {
@@ -72,33 +74,33 @@ export interface AnalysisResults {
 
 // Cross-Validation Types
 export interface CrossValCriteria {
-    mode: 'sex' | 'year' | 'farm' | 'random';
+    mode: 'sex' | 'farm' | 'year' | 'random';
     value?: string;
     fraction?: number;
     seed?: number;
 }
 
 export interface StatsResult {
-    count: number;
-    mean: number;
-    std: number;
-    min: number;
-    max: number;
+    count?: number;
+    mean?: number;
+    std?: number;
+    min?: number;
+    max?: number;
 }
 
 export interface CrossValidationMetrics {
-    r2_corr_ebv_trait_masked: number;
-    r2_corr_pred_trait_masked: number;
+    r2_corr_ebv_trait_masked?: number;
+    r2_corr_pred_trait_masked?: number;
 }
 
 export interface CrossValidationResults {
     id: string;
     status: string;
     stats: {
-        masked: StatsResult;
-        unmasked: StatsResult;
+        masked?: StatsResult;
+        unmasked?: StatsResult;
     };
-    metrics: CrossValidationMetrics;
+    metrics?: CrossValidationMetrics;
     warnings?: string[];
 }
 
@@ -156,11 +158,13 @@ export interface FactorAnalysisPayload {
     trait: {
         table: string;
         name: string;
+        label?: string;  // Russian display name for reports
     };
     factors: Array<{
         table: string;
         name: string;
         type: string;
+        label?: string;  // Russian display name for reports
     }>;
     settings: {
         analyze_all_combinations: boolean;

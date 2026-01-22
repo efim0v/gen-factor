@@ -32,7 +32,6 @@ export interface Translations {
     selectFactors: string;
     searchFactors: string;
     factorsNotFound: string;
-    hiddenReproductionFactors: string;
 
     // Actions
     analyze: string;
@@ -115,15 +114,16 @@ export interface Translations {
     pleaseSelectMaskingStrategy: string;
     pleaseSelectMaskingValue: string;
     sex: string;
-    year: string;
     farm: string;
+    year: string;
+    monthYear: string;
     randomSample: string;
 }
 
 export const translations: Record<Language, Translations> = {
     ru: {
         // Header
-        appTitle: 'Генетический анализ',
+        appTitle: 'Анализ факторов среды и кросс-валидация',
         appSubtitle: 'Анализ факторов среды и кросс-валидация',
         factorAnalysis: 'Факторный анализ',
         crossValidation: 'Кросс-валидация',
@@ -153,7 +153,6 @@ export const translations: Record<Language, Translations> = {
         selectFactors: 'Выберите факторы...',
         searchFactors: 'Поиск факторов...',
         factorsNotFound: 'Факторы не найдены',
-        hiddenReproductionFactors: 'репродуктивных факторов скрыто для этого признака.',
 
         // Actions
         analyze: 'Анализировать',
@@ -174,7 +173,7 @@ export const translations: Record<Language, Translations> = {
         // Table Headers
         factor: 'Фактор',
         effect: 'Эффект',
-        pValue: 'p-значение',
+        pValue: 'p-value',
         factor1: 'Фактор 1',
         factor2: 'Фактор 2',
         correlation: 'Корреляция',
@@ -205,7 +204,7 @@ export const translations: Record<Language, Translations> = {
         footerPlatformName: 'BLUP/ssgBLUP Analysis Platform',
 
         // Hints
-        pValueHint: 'p-значение < 0.05 считается статистически значимым влиянием на признак.',
+        pValueHint: 'p-value < 0.05 считается статистически значимым влиянием на признак.',
         recommendedFactorsHint: 'Список составлен по одному из двух критериев: 1) исключен один из пары признаков с взаимной корреляцией > 0.7 и оставлены только статистически значимые факторы, 2) дисперсия описанной модели максимальна.',
 
         // Cross-Validation
@@ -236,13 +235,14 @@ export const translations: Record<Language, Translations> = {
         pleaseSelectMaskingStrategy: 'Пожалуйста, выберите стратегию маскирования',
         pleaseSelectMaskingValue: 'Пожалуйста, выберите значение для маскирования',
         sex: 'Пол',
-        year: 'Год',
         farm: 'Ферма',
+        year: 'Год',
+        monthYear: 'Месяц.Год',
         randomSample: 'Случайная выборка',
     },
     en: {
         // Header
-        appTitle: 'Genetic Analysis',
+        appTitle: 'Environmental Factor Analysis & Cross-Validation',
         appSubtitle: 'Environmental Factor Analysis & Cross-Validation',
         factorAnalysis: 'Factor Analysis',
         crossValidation: 'Cross-Validation',
@@ -272,7 +272,6 @@ export const translations: Record<Language, Translations> = {
         selectFactors: 'Select factors...',
         searchFactors: 'Search factors...',
         factorsNotFound: 'Factors not found',
-        hiddenReproductionFactors: 'reproduction factors hidden for this trait.',
 
         // Actions
         analyze: 'Analyze',
@@ -355,8 +354,9 @@ export const translations: Record<Language, Translations> = {
         pleaseSelectMaskingStrategy: 'Please select a masking strategy',
         pleaseSelectMaskingValue: 'Please select a value to mask',
         sex: 'Sex',
-        year: 'Year',
         farm: 'Farm',
+        year: 'Year',
+        monthYear: 'Month.Year',
         randomSample: 'Random Sample',
     },
 };
