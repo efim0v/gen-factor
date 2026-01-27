@@ -68,6 +68,7 @@ export interface Translations {
     savedSuccessfully: string;
 
     // Validation messages
+    pleaseSelect: string;
     pleaseSelectBreed: string;
     pleaseSelectTrait: string;
     pleaseSelectFactor: string;
@@ -84,7 +85,10 @@ export interface Translations {
 
     // Hints
     pValueHint: string;
-    recommendedFactorsHint: string;
+    recommendedFactorsHintIntro: string;
+    recommendedFactorsHintCriteria1: string;
+    recommendedFactorsHintCriteria2: string;
+    recommendedFactorsHintCorrelation: string;
 
     // Cross-Validation
     maskingStrategy: string;
@@ -97,6 +101,7 @@ export interface Translations {
     unmasked: string;
     group: string;
     count: string;
+    animalCount: string;
     mean: string;
     stdDev: string;
     min: string;
@@ -189,6 +194,7 @@ export const translations: Record<Language, Translations> = {
         savedSuccessfully: 'Рекомендуемые факторы успешно сохранены!',
 
         // Validation messages
+        pleaseSelect: 'Пожалуйста, выберите',
         pleaseSelectBreed: 'Пожалуйста, выберите породу',
         pleaseSelectTrait: 'Пожалуйста, выберите признак',
         pleaseSelectFactor: 'Пожалуйста, выберите хотя бы один фактор',
@@ -205,7 +211,10 @@ export const translations: Record<Language, Translations> = {
 
         // Hints
         pValueHint: 'p-value < 0.05 считается статистически значимым влиянием на признак.',
-        recommendedFactorsHint: 'Список составлен по одному из двух критериев: 1) исключен один из пары признаков с взаимной корреляцией > 0.7 и оставлены только статистически значимые факторы, 2) дисперсия описанной модели максимальна.',
+        recommendedFactorsHintIntro: 'Список составлен по одному из двух критериев:',
+        recommendedFactorsHintCriteria1: '1) исключен один из пары признаков с взаимной корреляцией > 0.7 и оставлены только статистически значимые факторы;',
+        recommendedFactorsHintCriteria2: '2) дисперсия описанной модели максимальна.',
+        recommendedFactorsHintCorrelation: 'Методы расчёта корреляции: V Крамера — категориальные признаки, R² — количественные.',
 
         // Cross-Validation
         maskingStrategy: 'Стратегия маскирования',
@@ -217,7 +226,8 @@ export const translations: Record<Language, Translations> = {
         masked: 'Замаскированные',
         unmasked: 'Незамаскированные',
         group: 'Группа',
-        count: 'Количество',
+        count: 'Количество фенотипов',
+        animalCount: 'Количество животных',
         mean: 'Среднее',
         stdDev: 'Ст. откл.',
         min: 'Мин',
@@ -231,7 +241,7 @@ export const translations: Record<Language, Translations> = {
         noSavedResults: 'Сохранённых результатов не найдено. Сначала запустите факторный анализ и сохраните рекомендуемые факторы.',
         close: 'Закрыть',
         selectValue: 'Выберите значение...',
-        fractionToMask: 'Доля для маскирования',
+        fractionToMask: 'Доля животных для маскирования',
         pleaseSelectMaskingStrategy: 'Пожалуйста, выберите стратегию маскирования',
         pleaseSelectMaskingValue: 'Пожалуйста, выберите значение для маскирования',
         sex: 'Пол',
@@ -308,6 +318,7 @@ export const translations: Record<Language, Translations> = {
         savedSuccessfully: 'Recommended factors saved successfully!',
 
         // Validation messages
+        pleaseSelect: 'Please select',
         pleaseSelectBreed: 'Please select a breed',
         pleaseSelectTrait: 'Please select a trait',
         pleaseSelectFactor: 'Please select at least one factor',
@@ -324,7 +335,10 @@ export const translations: Record<Language, Translations> = {
 
         // Hints
         pValueHint: 'p-value < 0.05 is considered statistically significant effect on trait.',
-        recommendedFactorsHint: 'List compiled according to one of two criteria: 1) one of a pair of traits with mutual correlation > 0.7 is excluded and only statistically significant factors are left, 2) variance of the described model is maximal.',
+        recommendedFactorsHintIntro: 'List compiled according to one of two criteria:',
+        recommendedFactorsHintCriteria1: '1) one of a pair of traits with mutual correlation > 0.7 is excluded and only statistically significant factors are left;',
+        recommendedFactorsHintCriteria2: '2) variance of the described model is maximal.',
+        recommendedFactorsHintCorrelation: 'Correlation methods: Cramér\'s V — categorical variables, R² — continuous variables.',
 
         // Cross-Validation
         maskingStrategy: 'Masking Strategy',
@@ -336,7 +350,8 @@ export const translations: Record<Language, Translations> = {
         masked: 'Masked',
         unmasked: 'Unmasked',
         group: 'Group',
-        count: 'Count',
+        count: 'Phenotype Count',
+        animalCount: 'Animal Count',
         mean: 'Mean',
         stdDev: 'Std Dev',
         min: 'Min',
@@ -350,7 +365,7 @@ export const translations: Record<Language, Translations> = {
         noSavedResults: 'No saved results found. Run factor analysis and save the recommended factors first.',
         close: 'Close',
         selectValue: 'Select value...',
-        fractionToMask: 'Fraction to Mask',
+        fractionToMask: 'Fraction of Animals to Mask',
         pleaseSelectMaskingStrategy: 'Please select a masking strategy',
         pleaseSelectMaskingValue: 'Please select a value to mask',
         sex: 'Sex',

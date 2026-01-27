@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { ApiService } from '../services/api';
 import { SelectOption, CrossValidationResults, SavedFactorAnalysis } from '../types';
 import { SingleSelect, MultiSelect, Button } from '../components/UI';
@@ -89,6 +89,9 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
 
     const [localError, setLocalError] = useState<string | null>(null);
 
+    // Track previous breed to detect actual changes vs remounts
+    const prevBreedRef = useRef<string | null>(null);
+
     // Combined error from processing or local validation
     const error = processingError || localError;
     const setError = (err: string | null) => {
@@ -119,39 +122,56 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         }
     }, [selectedDb]);
 
-    // When breed selected -> Fetch traits and factors from breed's database
+    // When breed changes -> Reset dependent state and fetch new data
     useEffect(() => {
-        if (selectedBreed && selectedBreed.code && traits.length === 0 && !loadingTraits) {
-            setError(null);
+        if (selectedBreed && selectedBreed.code) {
             const breedDbName = selectedBreed.code;
+            const breedActuallyChanged = prevBreedRef.current !== null && prevBreedRef.current !== selectedBreed.id;
 
-            setLoadingTraits(true);
-            ApiService.getTraits(breedDbName)
-                .then(setTraits)
-                .catch((err) => {
-                    console.warn(`Failed to load traits from ${breedDbName}:`, err);
-                    setTraits([]);
-                })
-                .finally(() => setLoadingTraits(false));
+            // Only reset selections when breed actually changes (not on remount)
+            if (breedActuallyChanged) {
+                setSelectedTrait(null);
+                setSelectedFactors([]);
+                setError(null);
+            }
 
-            setLoadingFactors(true);
-            ApiService.getFactors(breedDbName)
-                .then((factors) => {
-                    setAvailableFactors(factors);
-                    // Apply initial factors if provided
-                    if (initialFactors.length > 0) {
-                        const matching = factors.filter(f =>
-                            initialFactors.includes(f.label) ||
-                            initialFactors.includes(f.code || '')
-                        );
-                        setSelectedFactors(matching);
-                    }
-                })
-                .catch((err) => {
-                    console.warn(`Failed to load factors from ${breedDbName}:`, err);
-                    setAvailableFactors([]);
-                })
-                .finally(() => setLoadingFactors(false));
+            // Always update prevBreedRef
+            prevBreedRef.current = selectedBreed.id;
+
+            // Only fetch if we don't have data yet or breed changed
+            if (traits.length === 0 || breedActuallyChanged) {
+                setTraits([]);
+                setLoadingTraits(true);
+                ApiService.getTraits(breedDbName)
+                    .then(setTraits)
+                    .catch((err) => {
+                        console.warn(`Failed to load traits from ${breedDbName}:`, err);
+                        setTraits([]);
+                    })
+                    .finally(() => setLoadingTraits(false));
+            }
+
+            if (availableFactors.length === 0 || breedActuallyChanged) {
+                setAvailableFactors([]);
+                setLoadingFactors(true);
+                ApiService.getFactors(breedDbName)
+                    .then((factors) => {
+                        setAvailableFactors(factors);
+                        // Apply initial factors if provided (only on first load or breed change)
+                        if (initialFactors.length > 0 && (breedActuallyChanged || selectedFactors.length === 0)) {
+                            const matching = factors.filter(f =>
+                                initialFactors.includes(f.label) ||
+                                initialFactors.includes(f.code || '')
+                            );
+                            setSelectedFactors(matching);
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn(`Failed to load factors from ${breedDbName}:`, err);
+                        setAvailableFactors([]);
+                    })
+                    .finally(() => setLoadingFactors(false));
+            }
         }
     }, [selectedBreed, initialFactors]);
 
@@ -226,6 +246,26 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         return null;
     };
 
+    // Get list of missing parameters for tooltip
+    const getMissingParams = (): string[] => {
+        const missing: string[] = [];
+        if (!selectedDb) missing.push(t.database);
+        if (!selectedBreed) missing.push(t.breed);
+        if (!selectedTrait) missing.push(t.trait);
+        if (selectedFactors.length === 0) missing.push(t.factors);
+        if (!maskingMode) missing.push(t.maskingStrategy);
+        if (['sex', 'farm', 'year'].includes(maskingMode || '') && !maskingValue) {
+            missing.push(t.selectValue);
+        }
+        return missing;
+    };
+
+    const missingParams = getMissingParams();
+    const canRunValidation = missingParams.length === 0;
+    const disabledTooltip = missingParams.length > 0
+        ? `${t.pleaseSelect}: ${missingParams.join(', ')}`
+        : undefined;
+
     const handleRunValidation = async () => {
         const validationError = validateInputs();
         if (validationError) {
@@ -238,7 +278,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         try {
             const factors = selectedFactors.map(f => ({
                 code: f.code || f.label,
-                type: 'cross',
+                type: f.type || 'animals',  // Pass table name from API (animals, classification, reproduction)
             }));
 
             const criteria = {
@@ -254,7 +294,10 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
             const taskId = await ApiService.runCrossValidation(
                 breedDbName,
                 selectedBreed?.id || '',
-                { code: selectedTrait?.code || selectedTrait?.label || '' },
+                {
+                    code: selectedTrait?.code || selectedTrait?.label || '',
+                    type: selectedTrait?.type || 'animals',  // Pass table name from API
+                },
                 factors,
                 criteria
             );
@@ -442,6 +485,8 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                 <Button
                     onClick={handleRunValidation}
                     isLoading={isProcessing}
+                    disabled={!canRunValidation}
+                    tooltip={disabledTooltip}
                     className="px-8 py-3 text-base"
                     icon={<FlaskConical className="w-5 h-5" />}
                     loadingText={t.processing}
@@ -467,6 +512,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.group}</th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.count}</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.animalCount}</th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.mean}</th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.stdDev}</th>
                                         <th className="px-4 py-3 text-right text-xs font-medium text-white dark:text-[#1a1a1a] uppercase bg-interactive-subtle border-r border-border">{t.min}</th>
@@ -477,6 +523,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                     <tr className="bg-elevated">
                                         <td className="px-4 py-3 font-medium text-text-primary border-r border-border">{t.masked}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{results.stats.masked?.count ?? 'N/A'}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{results.stats.masked?.animal_count ?? 'N/A'}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.masked?.mean)}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.masked?.std)}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.masked?.min)}</td>
@@ -485,6 +532,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                     <tr className="bg-surface">
                                         <td className="px-4 py-3 font-medium text-text-primary border-r border-border">{t.unmasked}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{results.stats.unmasked?.count ?? 'N/A'}</td>
+                                        <td className="px-4 py-3 text-right text-text-primary border-r border-border">{results.stats.unmasked?.animal_count ?? 'N/A'}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.unmasked?.mean)}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.unmasked?.std)}</td>
                                         <td className="px-4 py-3 text-right text-text-primary border-r border-border">{safeToFixed(results.stats.unmasked?.min)}</td>
