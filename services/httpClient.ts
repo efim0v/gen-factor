@@ -1,8 +1,8 @@
 const isDevelopment = import.meta.env.DEV;
 
-// Check if we're running on testserver (Docker deployment) or Vercel/Netlify
-const isDockerDeployment = typeof window !== 'undefined' && 
-  window.location.hostname.includes('testserver.tech');
+// Check if we're running on Docker deployment (pulse.computebio.pro) or Vercel/Netlify
+const isDockerDeployment = typeof window !== 'undefined' &&
+  window.location.hostname.includes('pulse.computebio.pro');
 
 /**
  * Универсальный HTTP-клиент

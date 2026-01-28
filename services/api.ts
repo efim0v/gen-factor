@@ -137,7 +137,7 @@ export const ApiService = {
   async downloadArtifact(taskId: string, filename: string): Promise<Blob> {
     const isDevelopment = import.meta.env.DEV;
     const isDockerDeployment = typeof window !== 'undefined' && 
-      window.location.hostname.includes('testserver.tech');
+      window.location.hostname.includes('pulse.computebio.pro');
     const endpoint = `/tasks/${taskId}/download?file=${encodeURIComponent(filename)}`;
     
     let url: string;
@@ -295,7 +295,7 @@ export const ApiService = {
 
     const isDevelopment = import.meta.env.DEV;
     const isDockerDeployment = typeof window !== 'undefined' &&
-      window.location.hostname.includes('testserver.tech');
+      window.location.hostname.includes('pulse.computebio.pro');
     const endpoint = `/tasks/${taskId}/report`;
 
     let url: string;
@@ -479,7 +479,7 @@ export const ApiService = {
   async deleteSavedCrossValidation(savedId: string): Promise<void> {
     const isDevelopment = import.meta.env.DEV;
     const isDockerDeployment = typeof window !== 'undefined' &&
-      window.location.hostname.includes('testserver.tech');
+      window.location.hostname.includes('pulse.computebio.pro');
     const endpoint = `/cross_validation/saved/${savedId}`;
 
     let url: string;
