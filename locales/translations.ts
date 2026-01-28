@@ -39,6 +39,7 @@ export interface Translations {
     download: string;
     saveRecommendedFactors: string;
     downloadResults: string;
+    downloadTable: string;
     startAnalysis: string;
     processing: string;
 
@@ -196,6 +197,7 @@ export const translations: Record<Language, Translations> = {
         download: 'Скачать',
         saveRecommendedFactors: 'Сохранить рекомендуемые факторы',
         downloadResults: 'Скачать результаты (ZIP)',
+        downloadTable: 'Скачать таблицу',
         startAnalysis: 'Начать анализ',
         processing: 'Обработка...',
 
@@ -351,6 +353,7 @@ export const translations: Record<Language, Translations> = {
         download: 'Download',
         saveRecommendedFactors: 'Save Recommended Factors',
         downloadResults: 'Download Results (ZIP)',
+        downloadTable: 'Download Table',
         startAnalysis: 'Start Analysis',
         processing: 'Processing...',
 

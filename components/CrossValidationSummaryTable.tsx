@@ -62,6 +62,72 @@ const getMaskingDescription = (
     return { mode, value: result.masking.value || '—' };
 };
 
+const escapeCsvField = (field: string): string => {
+    if (field.includes(';') || field.includes('"') || field.includes('\n')) {
+        return `"${field.replace(/"/g, '""')}"`;
+    }
+    return field;
+};
+
+export const downloadCrossValidationCsv = (savedResults: SavedCrossValidation[], t: any) => {
+    if (savedResults.length === 0) return;
+
+    const maxFactors = Math.max(...savedResults.map((r) => r.factors.length));
+    const sep = ';';
+
+    type CsvRow = { label: string; getValue: (r: SavedCrossValidation) => string };
+    const rows: CsvRow[] = [
+        { label: t.analysisDate, getValue: (r) => formatDate(r.created_at) },
+        { label: t.company, getValue: (r) => getCompanyName(r.db_name) },
+        { label: t.breed, getValue: (r) => r.breed_name || r.breed_id },
+        { label: t.trait, getValue: (r) => r.trait_name || r.trait_code },
+        ...Array.from({ length: maxFactors }, (_, i) => ({
+            label: i === 0 ? t.factors : '',
+            getValue: (r: SavedCrossValidation) => r.factors[i] || '',
+        })),
+        { label: t.maskingStrategy, getValue: (r) => getMaskingDescription(r, t).mode },
+        { label: t.maskingValue, getValue: (r) => getMaskingDescription(r, t).value },
+        { label: t.maskedPhenotypeCount, getValue: (r) => r.stats_masked?.count?.toString() || '—' },
+        { label: t.maskedAnimalCount, getValue: (r) => r.stats_masked?.animal_count?.toString() || '—' },
+        { label: t.maskedMean, getValue: (r) => formatStat(r.stats_masked?.mean) },
+        { label: t.maskedStdDev, getValue: (r) => formatStat(r.stats_masked?.std) },
+        { label: t.maskedMin, getValue: (r) => formatStat(r.stats_masked?.min) },
+        { label: t.maskedMax, getValue: (r) => formatStat(r.stats_masked?.max) },
+        { label: t.unmaskedPhenotypeCount, getValue: (r) => r.stats_unmasked?.count?.toString() || '—' },
+        { label: t.unmaskedAnimalCount, getValue: (r) => r.stats_unmasked?.animal_count?.toString() || '—' },
+        { label: t.unmaskedMean, getValue: (r) => formatStat(r.stats_unmasked?.mean) },
+        { label: t.unmaskedStdDev, getValue: (r) => formatStat(r.stats_unmasked?.std) },
+        { label: t.unmaskedMin, getValue: (r) => formatStat(r.stats_unmasked?.min) },
+        { label: t.unmaskedMax, getValue: (r) => formatStat(r.stats_unmasked?.max) },
+        { label: t.r2EbvTrait, getValue: (r) => formatR2(r.r2_ebv_trait) },
+        { label: t.r2PhenotypeTrait, getValue: (r) => formatR2(r.r2_pred_trait) },
+    ];
+
+    const csvRows: string[] = [];
+    const header = [
+        t.characteristic,
+        ...savedResults.map((r, i) => r.name || `${t.variant} ${i + 1}`),
+    ];
+    csvRows.push(header.map(escapeCsvField).join(sep));
+
+    for (const row of rows) {
+        const cells = [row.label, ...savedResults.map((r) => row.getValue(r))];
+        csvRows.push(cells.map(escapeCsvField).join(sep));
+    }
+
+    const bom = '\uFEFF';
+    const csvContent = bom + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'сводная-таблица-кросс-валидации.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 type SortDirection = 'asc' | 'desc' | null;
 
 // Row group types for coloring

@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { ApiService } from '../services/api';
 import { SelectOption, CrossValidationResults, SavedFactorAnalysis, SavedCrossValidation } from '../types';
 import { SingleSelect, MultiSelect, Button } from '../components/UI';
-import { FlaskConical, BookOpen, TrendingUp, Save } from 'lucide-react';
+import { FlaskConical, BookOpen, TrendingUp, Save, Download } from 'lucide-react';
 import { isHiddenFactor } from '../utils/tableResolver';
 import { useApp } from '../contexts/AppContext';
-import { CrossValidationSummaryTable } from '../components/CrossValidationSummaryTable';
+import { CrossValidationSummaryTable, downloadCrossValidationCsv } from '../components/CrossValidationSummaryTable';
 
 // Masking modes: farm (from allowed farms CSV), year (month.year only), sex, random
 type MaskingMode = 'sex' | 'farm' | 'year' | 'random';
@@ -692,9 +692,20 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
             {/* Saved Cross-Validations Summary Table */}
             {selectedTrait && (
                 <section className="bg-surface p-6 rounded-xl shadow-sm border border-border">
-                    <h2 className="text-lg font-semibold text-text-primary mb-6">
-                        {t.savedCrossValidationResults}
-                    </h2>
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-lg font-semibold text-text-primary">
+                            {t.savedCrossValidationResults}
+                        </h2>
+                        {savedCrossValidations.length > 0 && (
+                            <button
+                                onClick={() => downloadCrossValidationCsv(savedCrossValidations, t)}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors"
+                            >
+                                <Download size={16} />
+                                {t.downloadTable}
+                            </button>
+                        )}
+                    </div>
                     {loadingSavedCVs ? (
                         <div className="text-text-secondary text-center py-8">
                             {t.loading}
