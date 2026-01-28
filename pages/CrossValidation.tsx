@@ -536,7 +536,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                 <label className="block text-sm font-medium text-text-primary mb-2">
                                     {t.fractionToMask}
                                 </label>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-start gap-4">
                                     <div className="flex-1">
                                         <input
                                             type="range"
@@ -552,7 +552,7 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                             <span>90%</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 mt-1">
                                         <input
                                             type="number"
                                             min="1"
