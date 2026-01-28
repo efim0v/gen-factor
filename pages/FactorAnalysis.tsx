@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { ApiService } from '../services/api';
 import { SelectOption, AnalysisResults } from '../types';
 import { SingleSelect, MultiSelect, Checkbox, Button } from '../components/UI';
@@ -65,6 +65,9 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [analysisName, setAnalysisName] = useState('');
 
+    // Track previous breed to detect actual changes vs remounts
+    const prevBreedRef = useRef<string | null>(null);
+
     // Combined error from processing or local validation
     const error = processingError || localError;
     const setError = (err: string | null) => {
@@ -96,33 +99,46 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
         }
     }, [selectedDb]);
 
-    // 3. When breed selected -> Fetch Traits and Factors from the breed's database
+    // 3. When breed changes -> Reset dependent state and fetch new data
     useEffect(() => {
-        if (selectedBreed && selectedBreed.code && traits.length === 0 && !loadingTraits) {
-            setError(null);
+        if (selectedBreed && selectedBreed.code) {
             const breedDbName = selectedBreed.code; // db_name stored in code field
+            const breedActuallyChanged = prevBreedRef.current !== null && prevBreedRef.current !== selectedBreed.id;
 
-            // Fetch traits
-            setLoadingTraits(true);
-            ApiService.getTraits(breedDbName)
-                .then(setTraits)
-                .catch((err) => {
-                    // Gracefully handle missing tables in bmk_dd and bmk_ll
-                    console.warn(`Failed to load traits from ${breedDbName}:`, err);
-                    setTraits([]);
-                })
-                .finally(() => setLoadingTraits(false));
+            // Only reset selections when breed actually changes (not on remount)
+            if (breedActuallyChanged) {
+                setSelectedTrait(null);
+                setSelectedFactors([]);
+                setError(null);
+            }
 
-            // Fetch factors
-            setLoadingFactors(true);
-            ApiService.getFactors(breedDbName)
-                .then(setAvailableFactors)
-                .catch((err) => {
-                    // Gracefully handle missing tables in bmk_dd and bmk_ll
-                    console.warn(`Failed to load factors from ${breedDbName}:`, err);
-                    setAvailableFactors([]);
-                })
-                .finally(() => setLoadingFactors(false));
+            // Always update prevBreedRef
+            prevBreedRef.current = selectedBreed.id;
+
+            // Only fetch if we don't have data yet or breed changed
+            if (traits.length === 0 || breedActuallyChanged) {
+                setTraits([]);
+                setLoadingTraits(true);
+                ApiService.getTraits(breedDbName)
+                    .then(setTraits)
+                    .catch((err) => {
+                        console.warn(`Failed to load traits from ${breedDbName}:`, err);
+                        setTraits([]);
+                    })
+                    .finally(() => setLoadingTraits(false));
+            }
+
+            if (availableFactors.length === 0 || breedActuallyChanged) {
+                setAvailableFactors([]);
+                setLoadingFactors(true);
+                ApiService.getFactors(breedDbName)
+                    .then(setAvailableFactors)
+                    .catch((err) => {
+                        console.warn(`Failed to load factors from ${breedDbName}:`, err);
+                        setAvailableFactors([]);
+                    })
+                    .finally(() => setLoadingFactors(false));
+            }
         }
     }, [selectedBreed]);
 
@@ -135,6 +151,22 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
         if (selectedFactors.length === 0) return t.pleaseSelectFactor;
         return null;
     };
+
+    // Get list of missing parameters for tooltip
+    const getMissingParams = (): string[] => {
+        const missing: string[] = [];
+        if (!selectedDb) missing.push(t.database);
+        if (!selectedBreed) missing.push(t.breed);
+        if (!selectedTrait) missing.push(t.trait);
+        if (selectedFactors.length === 0) missing.push(t.factors);
+        return missing;
+    };
+
+    const missingParams = getMissingParams();
+    const canRunAnalysis = missingParams.length === 0;
+    const disabledTooltip = missingParams.length > 0
+        ? `${t.pleaseSelect}: ${missingParams.join(', ')}`
+        : undefined;
 
     const handleRunAnalysis = async () => {
         const validationError = validateInputs();
@@ -323,7 +355,7 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
 
                         {/* Analysis Options */}
                         <div className="pt-4 border-t border-border">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                                 <div className="p-4 bg-elevated rounded-lg border border-border flex-1">
                                     <Checkbox
                                         label={t.analyzeAllCombinations}
@@ -338,6 +370,8 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
                                 <Button
                                     onClick={handleRunAnalysis}
                                     isLoading={isProcessing}
+                                    disabled={!canRunAnalysis}
+                                    tooltip={disabledTooltip}
                                     className="md:w-auto w-full h-12 text-base shadow-md md:px-8"
                                     icon={<Activity className="w-5 h-5" />}
                                     loadingText={t.processing}

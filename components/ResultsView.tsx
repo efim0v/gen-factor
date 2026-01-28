@@ -224,21 +224,23 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Table 3: Model Accuracy */}
-                <div className="bg-surface shadow rounded-lg overflow-hidden border border-border">
+            {/* Adaptive grid: if many factors, table takes full width */}
+            <div className={`grid grid-cols-1 gap-6 ${orderedFactors.length <= 4 ? 'lg:grid-cols-2' : ''}`}>
+                {/* Table 3: Model Accuracy - adaptive width based on factor count */}
+                <div className={`bg-surface shadow rounded-lg overflow-hidden border border-border relative z-0 ${orderedFactors.length > 4 ? 'order-1' : ''}`}>
                     <h3 className="px-4 py-3 text-h4 text-text-primary bg-elevated border-b border-border">
                         {t.modelAccuracy}
                     </h3>
-                    <div className="overflow-auto max-h-96">
+                    <div className="overflow-auto max-h-96 relative isolate">
                         <table className="min-w-full table-auto">
-                            <thead className="sticky top-0 z-10">
+                            <thead className="sticky top-0 z-20 bg-interactive-subtle">
                                 <tr>
+                                    {/* Factor columns first */}
                                     {orderedFactors.map((factor) => {
                                         // Split factor name by spaces to put each word on a new line
                                         const words = factor.split(' ');
                                         return (
-                                            <th key={factor} className="px-1.5 py-2 text-center type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-r border-border last:border-r-0 min-w-[80px]">
+                                            <th key={factor} className="px-1.5 py-2 text-center type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle border-r border-border min-w-[80px]">
                                                 {words.map((word, idx) => (
                                                     <div key={idx} className="whitespace-nowrap">
                                                         {word}
@@ -247,12 +249,16 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                                             </th>
                                         );
                                     })}
-                                    <TableHeader className="w-20 text-center">R²</TableHeader>
+                                    {/* R² column last (right side) - sticky for visibility */}
+                                    <th className="px-2 py-2 text-center type-label text-white dark:text-[#1a1a1a] bg-interactive-subtle w-16 sticky right-0 z-30 shadow-[-2px_0_4px_rgba(0,0,0,0.1)]">
+                                        R²
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="bg-surface divide-y divide-border">
                                 {sortedModelAccuracy.map((row, idx) => (
                                     <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
+                                        {/* Factor columns first */}
                                         {orderedFactors.map(factor => {
                                             const hasFactor = row.factors.includes(factor);
                                             return (
@@ -261,7 +267,10 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                                                 </TableCell>
                                             );
                                         })}
-                                        <TableCell className="font-medium text-center">{formatR2(row.r2)}</TableCell>
+                                        {/* R² column last (right side) - sticky for visibility */}
+                                        <td className={`px-2 py-2 font-medium text-center text-text-primary border-b border-border sticky right-0 z-10 shadow-[-2px_0_4px_rgba(0,0,0,0.1)] ${idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}`}>
+                                            {formatR2(row.r2)}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -270,7 +279,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                 </div>
 
                 {/* Recommended Factors */}
-                <div className="bg-surface shadow rounded-lg p-4 border border-border">
+                <div className={`bg-surface shadow rounded-lg p-4 border border-border ${orderedFactors.length > 4 ? 'order-2' : ''}`}>
                     <h3 className="text-h4 text-text-primary mb-3">{t.recommendedFactors}<span className="text-green-600">**</span></h3>
 
                     {/* Factors as Tags - compact layout */}
@@ -286,10 +295,13 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                     </div>
 
                     {/* Hints - compact */}
-                    <p className="text-xs text-text-secondary leading-relaxed">
-                        <span className="text-green-600 font-bold">*</span> {t.pValueHint}<br/>
-                        <span className="text-green-600 font-bold">**</span> {t.recommendedFactorsHint}
-                    </p>
+                    <div className="text-xs text-text-secondary leading-relaxed space-y-1">
+                        <p><span className="text-green-600 font-bold">*</span> {t.pValueHint}</p>
+                        <p><span className="text-green-600 font-bold">**</span> {t.recommendedFactorsHintIntro}</p>
+                        <p className="pl-4">{t.recommendedFactorsHintCriteria1}</p>
+                        <p className="pl-4">{t.recommendedFactorsHintCriteria2}</p>
+                        <p className="pl-4">{t.recommendedFactorsHintCorrelation}</p>
+                    </div>
                 </div>
             </div>
         </div>

@@ -349,7 +349,7 @@ export const ApiService = {
   async runCrossValidation(
     dbName: string,
     breedId: string,
-    trait: { code: string; table?: string },
+    trait: { code: string; table?: string; type?: string },
     factors: Array<{ code: string; type: string; table?: string }>,
     criteria: {
       mode: 'sex' | 'year' | 'random';  // 'farm' removed - use month_year
@@ -403,7 +403,7 @@ export const ApiService = {
   async runCrossValidationComplete(
     dbName: string,
     breedId: string,
-    trait: { code: string; table?: string },
+    trait: { code: string; table?: string; type?: string },
     factors: Array<{ code: string; type: string; table?: string }>,
     criteria: {
       mode: 'sex' | 'year' | 'farm' | 'random';

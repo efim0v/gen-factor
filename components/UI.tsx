@@ -292,11 +292,15 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     isLoading?: boolean;
     icon?: React.ReactNode;
     loadingText?: string;
+    tooltip?: string;  // Tooltip text shown on hover when disabled
 }
 
 export const Button: React.FC<ButtonProps> = ({
-    children, variant = 'primary', size = 'md', isLoading, icon, className = '', loadingText = 'Processing...', ...props
+    children, variant = 'primary', size = 'md', isLoading, icon, className = '', loadingText = 'Processing...', tooltip, ...props
 }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+    const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
     const baseStyles = "inline-flex items-center justify-center border font-medium rounded-lg focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed";
 
     const variants = {
@@ -311,26 +315,61 @@ export const Button: React.FC<ButtonProps> = ({
         lg: "px-6 py-3 text-base"
     };
 
+    const isDisabled = isLoading || props.disabled;
+
+    const handleMouseEnter = (e: React.MouseEvent) => {
+        if (isDisabled && tooltip) {
+            setShowTooltip(true);
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+        }
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (showTooltip) {
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+        }
+    };
+
+    const handleMouseLeave = () => {
+        setShowTooltip(false);
+    };
+
     return (
-        <button
-            className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
-            disabled={isLoading || props.disabled}
-            {...props}
-        >
-            {isLoading ? (
-                <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {loadingText}
-                </>
-            ) : (
-                <>
-                    {icon && <span className="mr-2 flex items-center">{icon}</span>}
-                    {children}
-                </>
+        <>
+            <button
+                className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+                disabled={isDisabled}
+                onMouseEnter={handleMouseEnter}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                {...props}
+            >
+                {isLoading ? (
+                    <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {loadingText}
+                    </>
+                ) : (
+                    <>
+                        {icon && <span className="mr-2 flex items-center">{icon}</span>}
+                        {children}
+                    </>
+                )}
+            </button>
+            {showTooltip && tooltip && (
+                <div
+                    className="fixed z-[9999] px-3 py-2 text-sm bg-surface border border-border rounded-lg shadow-lg text-text-primary max-w-xs break-words pointer-events-none"
+                    style={{
+                        left: tooltipPosition.x + 12,
+                        top: tooltipPosition.y + 12,
+                    }}
+                >
+                    {tooltip}
+                </div>
             )}
-        </button>
+        </>
     );
 };
