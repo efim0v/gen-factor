@@ -96,16 +96,10 @@ export const CrossValidationSummaryTable: React.FC<CrossValidationSummaryTablePr
     const [sortKey, setSortKey] = useState<string | null>('date');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-    if (savedResults.length === 0) {
-        return (
-            <div className="text-text-secondary text-center py-8">
-                {t.noSavedCrossValidations}
-            </div>
-        );
-    }
-
-    // Find the maximum number of factors across all results
-    const maxFactors = Math.max(...savedResults.map((r) => r.factors.length));
+    // Find the maximum number of factors across all results (0 if empty)
+    const maxFactors = savedResults.length > 0
+        ? Math.max(...savedResults.map((r) => r.factors.length))
+        : 0;
 
     // Define all rows with their groups
     const rows: RowDef[] = [
@@ -337,6 +331,15 @@ export const CrossValidationSummaryTable: React.FC<CrossValidationSummaryTablePr
             <ArrowDown size={12} className="text-white/70 dark:text-[#1a1a1a]/70" />
         );
     };
+
+    // Early return for empty state - MUST be after all hooks
+    if (savedResults.length === 0) {
+        return (
+            <div className="text-text-secondary text-center py-8">
+                {t.noSavedCrossValidations}
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-x-auto">
