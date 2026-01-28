@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { ApiService } from '../services/api';
-import { SelectOption, CrossValidationResults, SavedFactorAnalysis } from '../types';
+import { SelectOption, CrossValidationResults, SavedFactorAnalysis, SavedCrossValidation } from '../types';
 import { SingleSelect, MultiSelect, Button } from '../components/UI';
-import { FlaskConical, BookOpen, TrendingUp } from 'lucide-react';
+import { FlaskConical, BookOpen, TrendingUp, Save } from 'lucide-react';
 import { isHiddenFactor } from '../utils/tableResolver';
 import { useApp } from '../contexts/AppContext';
+import { CrossValidationSummaryTable } from '../components/CrossValidationSummaryTable';
 
 // Masking modes: farm (from allowed farms CSV), year (month.year only), sex, random
 type MaskingMode = 'sex' | 'farm' | 'year' | 'random';
@@ -76,9 +77,14 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
     const [maskingFraction, setMaskingFraction] = useState<number>(0.1);
     const [maskingOptions, setMaskingOptions] = useState<string[]>([]);
 
-    // Saved Results
+    // Saved Factor Analysis Results (for loading recommended factors)
     const [savedResults, setSavedResults] = useState<SavedFactorAnalysis[]>([]);
     const [showSavedModal, setShowSavedModal] = useState(false);
+
+    // Saved Cross-Validation Results (for summary table)
+    const [savedCrossValidations, setSavedCrossValidations] = useState<SavedCrossValidation[]>([]);
+    const [loadingSavedCVs, setLoadingSavedCVs] = useState(false);
+    const [savingCV, setSavingCV] = useState(false);
 
     // Loading States
     const [loadingDb, setLoadingDb] = useState(false);
@@ -183,6 +189,27 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
             }, 100);
         }
     }, [results]);
+
+    // Load saved cross-validations when trait is selected
+    useEffect(() => {
+        if (selectedBreed && selectedBreed.code && selectedTrait) {
+            setLoadingSavedCVs(true);
+            const traitCode = selectedTrait.code || selectedTrait.label;
+            ApiService.getSavedCrossValidations(
+                selectedBreed.code,
+                selectedBreed.id,
+                traitCode
+            )
+                .then(setSavedCrossValidations)
+                .catch((err) => {
+                    console.warn('Failed to load saved cross-validations:', err);
+                    setSavedCrossValidations([]);
+                })
+                .finally(() => setLoadingSavedCVs(false));
+        } else {
+            setSavedCrossValidations([]);
+        }
+    }, [selectedBreed, selectedTrait]);
 
     // When masking mode changes, load options
     // - 'farm' mode: load allowed farm names from CSV
@@ -307,6 +334,54 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
         } catch (err: any) {
             console.error('Cross-validation failed:', err);
             setError(err.message || 'Cross-validation failed');
+        }
+    };
+
+    // Save cross-validation result
+    const handleSaveCrossValidation = async () => {
+        if (!results || !results.id) {
+            setError('No results to save');
+            return;
+        }
+
+        if (!selectedBreed?.code || !selectedBreed?.id || !selectedTrait) {
+            setError('Missing breed or trait information');
+            return;
+        }
+
+        setSavingCV(true);
+        try {
+            const saved = await ApiService.saveCrossValidation(results.id, {
+                dbName: selectedBreed.code,
+                breedId: selectedBreed.id,
+                breedName: selectedBreed.label,
+                traitCode: selectedTrait.code || selectedTrait.label,
+                traitName: selectedTrait.label,
+                factors: selectedFactors.map(f => f.label),
+                maskingMode: maskingMode || 'random',
+                maskingValue: maskingValue || undefined,
+                maskingFraction: maskingMode === 'random' ? maskingFraction : undefined,
+            });
+
+            // Add to the list
+            setSavedCrossValidations(prev => [saved, ...prev]);
+            alert(t.cvSavedSuccessfully);
+        } catch (err: any) {
+            console.error('Failed to save cross-validation:', err);
+            setError(err.message || 'Failed to save cross-validation');
+        } finally {
+            setSavingCV(false);
+        }
+    };
+
+    // Delete saved cross-validation
+    const handleDeleteCrossValidation = async (savedId: string) => {
+        try {
+            await ApiService.deleteSavedCrossValidation(savedId);
+            setSavedCrossValidations(prev => prev.filter(cv => cv.id !== savedId));
+        } catch (err: any) {
+            console.error('Failed to delete cross-validation:', err);
+            setError(err.message || 'Failed to delete cross-validation');
         }
     };
 
@@ -595,6 +670,38 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                 {results.warnings.map((w, i) => <li key={i}>{w}</li>)}
                             </ul>
                         </div>
+                    )}
+
+                    {/* Save Button - styled like Start button */}
+                    <div className="flex justify-end mt-6">
+                        <Button
+                            onClick={handleSaveCrossValidation}
+                            isLoading={savingCV}
+                            className="px-8 py-3 text-base"
+                            icon={<Save className="w-5 h-5" />}
+                            loadingText={t.processing}
+                        >
+                            {t.saveCrossValidationResult}
+                        </Button>
+                    </div>
+                </section>
+            )}
+
+            {/* Saved Cross-Validations Summary Table */}
+            {selectedTrait && (
+                <section className="bg-surface p-6 rounded-xl shadow-sm border border-border">
+                    <h2 className="text-lg font-semibold text-text-primary mb-6">
+                        {t.savedCrossValidationResults}
+                    </h2>
+                    {loadingSavedCVs ? (
+                        <div className="text-text-secondary text-center py-8">
+                            {t.loading}
+                        </div>
+                    ) : (
+                        <CrossValidationSummaryTable
+                            savedResults={savedCrossValidations}
+                            onDelete={handleDeleteCrossValidation}
+                        />
                     )}
                 </section>
             )}

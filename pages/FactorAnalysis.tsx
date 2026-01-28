@@ -86,12 +86,11 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
             .finally(() => setLoadingDb(false));
     }, []);
 
-    // 2. When DB selected -> Fetch all breeds from all databases
+    // 2. When DB selected -> Fetch all breeds
     useEffect(() => {
         if (selectedDb && breeds.length === 0 && !loadingBreeds) {
             setError(null);
 
-            // Fetch breeds from all databases (bmk_yy, bmk_dd, bmk_ll)
             setLoadingBreeds(true);
             ApiService.getAllBreeds()
                 .then(setBreeds)
@@ -102,7 +101,7 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
     // 3. When breed changes -> Reset dependent state and fetch new data
     useEffect(() => {
         if (selectedBreed && selectedBreed.code) {
-            const breedDbName = selectedBreed.code; // db_name stored in code field
+            const breedDbName = selectedBreed.code;
             const breedActuallyChanged = prevBreedRef.current !== null && prevBreedRef.current !== selectedBreed.id;
 
             // Only reset selections when breed actually changes (not on remount)
@@ -178,7 +177,7 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
         setError(null);
 
         try {
-            // Use the breed's database (stored in code field)
+            // Use the database code from selected breed
             const breedDbName = selectedBreed?.code || 'bmk_yy';
 
             // Prepare factors with table resolution

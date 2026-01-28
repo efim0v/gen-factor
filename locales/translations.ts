@@ -126,6 +126,34 @@ export interface Translations {
     randomSample: string;
     goToCrossValidation: string;
     customPercentage: string;
+
+    // Saved Cross-Validations
+    saveCrossValidationResult: string;
+    savedCrossValidationResults: string;
+    characteristic: string;
+    variant: string;
+    analysisDate: string;
+    percentMasked: string;
+    noSavedCrossValidations: string;
+    cvSavedSuccessfully: string;
+    deleteResult: string;
+    confirmDelete: string;
+    company: string;
+    maskingValue: string;
+    maskedPhenotypeCount: string;
+    unmaskedPhenotypeCount: string;
+    maskedAnimalCount: string;
+    unmaskedAnimalCount: string;
+    maskedMean: string;
+    maskedStdDev: string;
+    maskedMin: string;
+    maskedMax: string;
+    unmaskedMean: string;
+    unmaskedStdDev: string;
+    unmaskedMin: string;
+    unmaskedMax: string;
+    sortNewestFirst: string;
+    sortOldestFirst: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -255,6 +283,34 @@ export const translations: Record<Language, Translations> = {
         randomSample: 'Случайная выборка',
         goToCrossValidation: 'Перейти к кросс-валидации',
         customPercentage: 'Введите процент вручную',
+
+        // Saved Cross-Validations
+        saveCrossValidationResult: 'Сохранить результат',
+        savedCrossValidationResults: 'Сохранённые результаты кросс-валидации',
+        characteristic: 'Характеристика',
+        variant: 'Вариант',
+        analysisDate: 'Дата анализа',
+        percentMasked: '% замаскированных животных',
+        noSavedCrossValidations: 'Нет сохранённых результатов кросс-валидации для этого признака.',
+        cvSavedSuccessfully: 'Результат кросс-валидации успешно сохранён!',
+        deleteResult: 'Удалить',
+        confirmDelete: 'Вы уверены, что хотите удалить этот результат?',
+        company: 'Компания',
+        maskingValue: 'Значение маскирования',
+        maskedPhenotypeCount: 'Замаскированное количество фенотипов',
+        unmaskedPhenotypeCount: 'Незамаскированное количество фенотипов',
+        maskedAnimalCount: 'Замаскированное количество животных',
+        unmaskedAnimalCount: 'Незамаскированное количество животных',
+        maskedMean: 'Среднее (замаск.)',
+        maskedStdDev: 'Ст. откл. (замаск.)',
+        maskedMin: 'Мин. (замаск.)',
+        maskedMax: 'Макс. (замаск.)',
+        unmaskedMean: 'Среднее (незамаск.)',
+        unmaskedStdDev: 'Ст. откл. (незамаск.)',
+        unmaskedMin: 'Мин. (незамаск.)',
+        unmaskedMax: 'Макс. (незамаск.)',
+        sortNewestFirst: 'Сортировать: сначала новые',
+        sortOldestFirst: 'Сортировать: сначала старые',
     },
     en: {
         // Header
@@ -382,5 +438,33 @@ export const translations: Record<Language, Translations> = {
         randomSample: 'Random Sample',
         goToCrossValidation: 'Go to Cross-Validation',
         customPercentage: 'Enter custom percentage',
+
+        // Saved Cross-Validations
+        saveCrossValidationResult: 'Save Result',
+        savedCrossValidationResults: 'Saved Cross-Validation Results',
+        characteristic: 'Characteristic',
+        variant: 'Variant',
+        analysisDate: 'Analysis Date',
+        percentMasked: '% Masked Animals',
+        noSavedCrossValidations: 'No saved cross-validation results for this trait.',
+        cvSavedSuccessfully: 'Cross-validation result saved successfully!',
+        deleteResult: 'Delete',
+        confirmDelete: 'Are you sure you want to delete this result?',
+        company: 'Company',
+        maskingValue: 'Masking Value',
+        maskedPhenotypeCount: 'Masked Phenotype Count',
+        unmaskedPhenotypeCount: 'Unmasked Phenotype Count',
+        maskedAnimalCount: 'Masked Animal Count',
+        unmaskedAnimalCount: 'Unmasked Animal Count',
+        maskedMean: 'Mean (masked)',
+        maskedStdDev: 'Std Dev (masked)',
+        maskedMin: 'Min (masked)',
+        maskedMax: 'Max (masked)',
+        unmaskedMean: 'Mean (unmasked)',
+        unmaskedStdDev: 'Std Dev (unmasked)',
+        unmaskedMin: 'Min (unmasked)',
+        unmaskedMax: 'Max (unmasked)',
+        sortNewestFirst: 'Sort: newest first',
+        sortOldestFirst: 'Sort: oldest first',
     },
 };

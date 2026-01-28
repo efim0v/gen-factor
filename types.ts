@@ -84,6 +84,7 @@ export interface CrossValCriteria {
 
 export interface StatsResult {
     count?: number;
+    animal_count?: number;
     mean?: number;
     std?: number;
     min?: number;
@@ -121,6 +122,31 @@ export interface SavedFactorAnalysis {
     breed_id: string;
     trait_code: string;
     recommended_factors: string[];
+    created_at: string;
+    name?: string;
+}
+
+// Saved Cross-Validation
+export interface MaskingCriteriaSaved {
+    mode: 'sex' | 'year' | 'farm' | 'random';
+    value?: string;
+    fraction?: number;
+}
+
+export interface SavedCrossValidation {
+    id: string;
+    task_id: string;
+    db_name: string;
+    breed_id: string;
+    breed_name?: string;
+    trait_code: string;
+    trait_name?: string;
+    factors: string[];
+    masking: MaskingCriteriaSaved;
+    stats_masked?: StatsResult;
+    stats_unmasked?: StatsResult;
+    r2_ebv_trait?: number;
+    r2_pred_trait?: number;
     created_at: string;
     name?: string;
 }

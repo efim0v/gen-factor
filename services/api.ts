@@ -8,6 +8,7 @@ import {
   TaskStatus,
   CrossValidationResults,
   SavedFactorAnalysis,
+  SavedCrossValidation,
   FactorAnalysisPayload,
   CrossValidationPayload,
 } from '../types';
@@ -423,11 +424,74 @@ export const ApiService = {
     );
 
     const status = await this.pollTaskUntilComplete(taskId);
-    
+
     if (status.status === 'error') {
       throw new Error(status.msg || 'Cross-validation failed');
     }
 
     return this.getTaskResult(taskId) as Promise<CrossValidationResults>;
+  },
+
+  // ========== Saved Cross-Validations ==========
+
+  // Save cross-validation result
+  async saveCrossValidation(
+    taskId: string,
+    params: {
+      name?: string;
+      dbName: string;
+      breedId: string;
+      breedName?: string;
+      traitCode: string;
+      traitName?: string;
+      factors: string[];
+      maskingMode: string;
+      maskingValue?: string;
+      maskingFraction?: number;
+    }
+  ): Promise<SavedCrossValidation> {
+    return apiPost<SavedCrossValidation>(`/cross_validation/${taskId}/save`, {
+      name: params.name,
+      db_name: params.dbName,
+      breed_id: params.breedId,
+      breed_name: params.breedName,
+      trait_code: params.traitCode,
+      trait_name: params.traitName,
+      factors: params.factors,
+      masking_mode: params.maskingMode,
+      masking_value: params.maskingValue,
+      masking_fraction: params.maskingFraction,
+    });
+  },
+
+  // List saved cross-validations
+  async getSavedCrossValidations(
+    dbName: string,
+    breedId: string,
+    traitCode: string
+  ): Promise<SavedCrossValidation[]> {
+    return apiGet<SavedCrossValidation[]>(
+      `/cross_validation/saved?db=${dbName}&breed_id=${breedId}&trait_code=${traitCode}`
+    );
+  },
+
+  // Delete saved cross-validation
+  async deleteSavedCrossValidation(savedId: string): Promise<void> {
+    const isDevelopment = import.meta.env.DEV;
+    const isDockerDeployment = typeof window !== 'undefined' &&
+      window.location.hostname.includes('testserver.tech');
+    const endpoint = `/cross_validation/saved/${savedId}`;
+
+    let url: string;
+    if (isDevelopment || isDockerDeployment) {
+      url = `/api${endpoint}`;
+    } else {
+      url = `/api/blup?path=${encodeURIComponent(endpoint)}`;
+    }
+
+    const response = await fetch(url, { method: 'DELETE' });
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`Delete failed: ${response.status}`);
+    }
   },
 };
