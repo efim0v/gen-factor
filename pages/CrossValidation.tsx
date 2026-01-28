@@ -537,15 +537,21 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                     {t.fractionToMask}
                                 </label>
                                 <div className="flex items-center gap-4">
-                                    <input
-                                        type="range"
-                                        min="0.01"
-                                        max="0.9"
-                                        step="0.01"
-                                        value={maskingFraction}
-                                        onChange={(e) => setMaskingFraction(parseFloat(e.target.value))}
-                                        className="flex-1"
-                                    />
+                                    <div className="flex-1">
+                                        <input
+                                            type="range"
+                                            min="0.01"
+                                            max="0.9"
+                                            step="0.01"
+                                            value={maskingFraction}
+                                            onChange={(e) => setMaskingFraction(parseFloat(e.target.value))}
+                                            className="w-full"
+                                        />
+                                        <div className="flex justify-between text-xs text-text-secondary mt-1">
+                                            <span>1%</span>
+                                            <span>90%</span>
+                                        </div>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number"
@@ -563,10 +569,6 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                                         />
                                         <span className="text-text-secondary">%</span>
                                     </div>
-                                </div>
-                                <div className="flex justify-between text-xs text-text-secondary mt-1">
-                                    <span>1%</span>
-                                    <span>90%</span>
                                 </div>
                             </div>
                         )}
