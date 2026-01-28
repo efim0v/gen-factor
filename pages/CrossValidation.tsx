@@ -457,22 +457,41 @@ const CrossValidation: React.FC<CrossValidationProps> = ({
                         )}
 
                         {maskingMode === 'random' && (
-                            <div className="max-w-xs">
+                            <div className="max-w-md">
                                 <label className="block text-sm font-medium text-text-primary mb-2">
-                                    {t.fractionToMask}: {(maskingFraction * 100).toFixed(0)}%
+                                    {t.fractionToMask}
                                 </label>
-                                <input
-                                    type="range"
-                                    min="0.05"
-                                    max="0.5"
-                                    step="0.05"
-                                    value={maskingFraction}
-                                    onChange={(e) => setMaskingFraction(parseFloat(e.target.value))}
-                                    className="w-full"
-                                />
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="range"
+                                        min="0.01"
+                                        max="0.9"
+                                        step="0.01"
+                                        value={maskingFraction}
+                                        onChange={(e) => setMaskingFraction(parseFloat(e.target.value))}
+                                        className="flex-1"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="90"
+                                            step="1"
+                                            value={Math.round(maskingFraction * 100)}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10);
+                                                if (!isNaN(val) && val >= 1 && val <= 90) {
+                                                    setMaskingFraction(val / 100);
+                                                }
+                                            }}
+                                            className="w-16 px-2 py-1 bg-surface text-text-primary border border-border rounded-lg text-center focus:border-border-strong"
+                                        />
+                                        <span className="text-text-secondary">%</span>
+                                    </div>
+                                </div>
                                 <div className="flex justify-between text-xs text-text-secondary mt-1">
-                                    <span>5%</span>
-                                    <span>50%</span>
+                                    <span>1%</span>
+                                    <span>90%</span>
                                 </div>
                             </div>
                         )}

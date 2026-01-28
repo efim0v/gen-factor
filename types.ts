@@ -3,8 +3,9 @@ export interface SelectOption {
     id: string;
     label: string;
     code?: string;
-    type?: string;
+    type?: string;  // Table type (animals/classification/reproduction)
     table?: string;
+    factorType?: string;  // Factor classification: "categorical" or "continual"
 }
 
 // API Response Models from BLUP API
@@ -33,7 +34,8 @@ export interface FactorOut {
     id: number;
     code: string;
     name: string;
-    type: string;
+    type: string;  // Table type (animals/classification/reproduction)
+    factor_type?: string;  // Factor classification: "categorical" or "continual"
 }
 
 // Analysis Results Models
@@ -165,6 +167,7 @@ export interface FactorAnalysisPayload {
         name: string;
         type: string;
         label?: string;  // Russian display name for reports
+        factor_type?: string;  // Factor classification: "categorical" or "continual"
     }>;
     settings: {
         analyze_all_combinations: boolean;

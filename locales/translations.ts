@@ -88,6 +88,7 @@ export interface Translations {
     recommendedFactorsHintIntro: string;
     recommendedFactorsHintCriteria1: string;
     recommendedFactorsHintCriteria2: string;
+    recommendedFactorsHintFallback: string;
     recommendedFactorsHintCorrelation: string;
 
     // Cross-Validation
@@ -123,13 +124,15 @@ export interface Translations {
     year: string;
     monthYear: string;
     randomSample: string;
+    goToCrossValidation: string;
+    customPercentage: string;
 }
 
 export const translations: Record<Language, Translations> = {
     ru: {
         // Header
         appTitle: 'Анализ факторов среды и кросс-валидация',
-        appSubtitle: 'Анализ факторов среды и кросс-валидация',
+        appSubtitle: 'Пульс.ЦСС',
         factorAnalysis: 'Факторный анализ',
         crossValidation: 'Кросс-валидация',
 
@@ -211,10 +214,11 @@ export const translations: Record<Language, Translations> = {
 
         // Hints
         pValueHint: 'p-value < 0.05 считается статистически значимым влиянием на признак.',
-        recommendedFactorsHintIntro: 'Список составлен по одному из двух критериев:',
-        recommendedFactorsHintCriteria1: '1) исключен один из пары признаков с взаимной корреляцией > 0.7 и оставлены только статистически значимые факторы;',
-        recommendedFactorsHintCriteria2: '2) дисперсия описанной модели максимальна.',
-        recommendedFactorsHintCorrelation: 'Методы расчёта корреляции: V Крамера — категориальные признаки, R² — количественные.',
+        recommendedFactorsHintIntro: 'Список составлен по двум критериям:',
+        recommendedFactorsHintCriteria1: '1) при наличии высокой корреляции между факторами (> 0.7) из пары исключается тот, у которого меньше влияние на признак (выше p-value);',
+        recommendedFactorsHintCriteria2: '2) среди оставшихся факторов выбирается комбинация с максимальной объяснённой дисперсией (R²).',
+        recommendedFactorsHintFallback: 'Если ни один фактор не является статистически значимым (p ≥ 0.05), выбираются 3 фактора с наименьшими p-value.',
+        recommendedFactorsHintCorrelation: 'Методы расчёта корреляции: V Крамера — между категориальными признаками; R² регрессионной модели (категориальный признак — независимая переменная, количественный — зависимая) — между категориальным и количественным признаком; коэффициент корреляции Пирсона — между количественными признаками.',
 
         // Cross-Validation
         maskingStrategy: 'Стратегия маскирования',
@@ -233,9 +237,9 @@ export const translations: Record<Language, Translations> = {
         min: 'Мин',
         max: 'Макс',
         r2EbvTrait: 'R² (EBV vs Признак)',
-        r2EbvTraitDesc: 'Корреляция между EBV и измеренным признаком для замаскированных животных',
+        r2EbvTraitDesc: 'Квадрат коэффициента корреляции между EBV и измеренным признаком для замаскированных животных',
         r2PhenotypeTrait: 'R² (Фенотип vs Признак)',
-        r2PhenotypeTraitDesc: 'Корреляция между предсказанным фенотипом и измеренным признаком',
+        r2PhenotypeTraitDesc: 'Квадрат коэффициента корреляции между предсказанным фенотипом и измеренным признаком',
         warnings: 'Предупреждения',
         savedFactorResults: 'Сохранённые результаты факторного анализа',
         noSavedResults: 'Сохранённых результатов не найдено. Сначала запустите факторный анализ и сохраните рекомендуемые факторы.',
@@ -249,11 +253,13 @@ export const translations: Record<Language, Translations> = {
         year: 'Год',
         monthYear: 'Месяц.Год',
         randomSample: 'Случайная выборка',
+        goToCrossValidation: 'Перейти к кросс-валидации',
+        customPercentage: 'Введите процент вручную',
     },
     en: {
         // Header
         appTitle: 'Environmental Factor Analysis & Cross-Validation',
-        appSubtitle: 'Environmental Factor Analysis & Cross-Validation',
+        appSubtitle: 'Пульс.ЦСС',
         factorAnalysis: 'Factor Analysis',
         crossValidation: 'Cross-Validation',
 
@@ -335,10 +341,11 @@ export const translations: Record<Language, Translations> = {
 
         // Hints
         pValueHint: 'p-value < 0.05 is considered statistically significant effect on trait.',
-        recommendedFactorsHintIntro: 'List compiled according to one of two criteria:',
-        recommendedFactorsHintCriteria1: '1) one of a pair of traits with mutual correlation > 0.7 is excluded and only statistically significant factors are left;',
-        recommendedFactorsHintCriteria2: '2) variance of the described model is maximal.',
-        recommendedFactorsHintCorrelation: 'Correlation methods: Cramér\'s V — categorical variables, R² — continuous variables.',
+        recommendedFactorsHintIntro: 'List compiled using two criteria:',
+        recommendedFactorsHintCriteria1: '1) when factors are highly correlated (> 0.7), the one with less influence on the trait (higher p-value) is excluded from the pair;',
+        recommendedFactorsHintCriteria2: '2) among the remaining factors, the combination with maximum explained variance (R²) is selected.',
+        recommendedFactorsHintFallback: 'If no factor is statistically significant (p ≥ 0.05), the top 3 factors with the lowest p-values are selected.',
+        recommendedFactorsHintCorrelation: 'Correlation methods: Cramér\'s V — between categorical variables; R² of regression model (categorical as independent variable, continuous as dependent) — between categorical and continuous variables; Pearson correlation coefficient — between continuous variables.',
 
         // Cross-Validation
         maskingStrategy: 'Masking Strategy',
@@ -357,9 +364,9 @@ export const translations: Record<Language, Translations> = {
         min: 'Min',
         max: 'Max',
         r2EbvTrait: 'R² (EBV vs Trait)',
-        r2EbvTraitDesc: 'Correlation between EBV and measured trait for masked animals',
+        r2EbvTraitDesc: 'Squared correlation coefficient between EBV and measured trait for masked animals',
         r2PhenotypeTrait: 'R² (Phenotype vs Trait)',
-        r2PhenotypeTraitDesc: 'Correlation between predicted phenotype and measured trait',
+        r2PhenotypeTraitDesc: 'Squared correlation coefficient between predicted phenotype and measured trait',
         warnings: 'Warnings',
         savedFactorResults: 'Saved Factor Analysis Results',
         noSavedResults: 'No saved results found. Run factor analysis and save the recommended factors first.',
@@ -373,5 +380,7 @@ export const translations: Record<Language, Translations> = {
         year: 'Year',
         monthYear: 'Month.Year',
         randomSample: 'Random Sample',
+        goToCrossValidation: 'Go to Cross-Validation',
+        customPercentage: 'Enter custom percentage',
     },
 };

@@ -207,7 +207,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                                 </tr>
                             </thead>
                             <tbody className="bg-surface divide-y divide-border">
-                                {results.correlations.map((row, idx) => (
+                                {[...results.correlations]
+                                    .sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation))
+                                    .map((row, idx) => (
                                     <tr key={idx} className={idx % 2 === 0 ? 'bg-elevated' : 'bg-surface'}>
                                         <TableCell wrap>{row.factor1}</TableCell>
                                         <TableCell wrap>{row.factor2}</TableCell>
@@ -300,6 +302,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ results, onDownload, i
                         <p><span className="text-green-600 font-bold">**</span> {t.recommendedFactorsHintIntro}</p>
                         <p className="pl-4">{t.recommendedFactorsHintCriteria1}</p>
                         <p className="pl-4">{t.recommendedFactorsHintCriteria2}</p>
+                        <p className="pl-4 text-amber-600">{t.recommendedFactorsHintFallback}</p>
                         <p className="pl-4">{t.recommendedFactorsHintCorrelation}</p>
                     </div>
                 </div>

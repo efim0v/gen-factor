@@ -3,7 +3,7 @@ import { ApiService } from '../services/api';
 import { SelectOption, AnalysisResults } from '../types';
 import { SingleSelect, MultiSelect, Checkbox, Button } from '../components/UI';
 import { ResultsView } from '../components/ResultsView';
-import { Activity, Save, X } from 'lucide-react';
+import { Activity, Save, X, FlaskConical } from 'lucide-react';
 import { isHiddenFactor, resolveTableName } from '../utils/tableResolver';
 import { useApp } from '../contexts/AppContext';
 
@@ -187,6 +187,7 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
                 type: 'cross',
                 table: resolveTableName(f),
                 label: f.label,
+                factor_type: f.factorType,  // categorical or continual from DB
             }));
 
             const traitWithTable = {
@@ -394,23 +395,33 @@ const FactorAnalysis: React.FC<FactorAnalysisProps> = ({
                     />
 
                     {/* Action Buttons */}
-                    <div className="mt-6 flex gap-4 justify-end">
-                        <Button
-                            onClick={handleDownload}
-                            isLoading={isDownloading}
-                            variant="secondary"
-                            icon={<Activity className="w-4 h-4" />}
-                            loadingText={t.processing}
-                        >
-                            {t.downloadResults}
-                        </Button>
-                        <Button
-                            onClick={handleOpenSaveModal}
-                            variant="secondary"
-                            icon={<Save className="w-4 h-4" />}
-                        >
-                            {t.saveRecommendedFactors}
-                        </Button>
+                    <div className="mt-6 flex flex-wrap gap-4 justify-between items-center">
+                        <div className="flex gap-4">
+                            <Button
+                                onClick={handleDownload}
+                                isLoading={isDownloading}
+                                variant="secondary"
+                                icon={<Activity className="w-4 h-4" />}
+                                loadingText={t.processing}
+                            >
+                                {t.downloadResults}
+                            </Button>
+                            <Button
+                                onClick={handleOpenSaveModal}
+                                variant="secondary"
+                                icon={<Save className="w-4 h-4" />}
+                            >
+                                {t.saveRecommendedFactors}
+                            </Button>
+                        </div>
+                        {onNavigateToCrossVal && results.recommendedFactors.length > 0 && (
+                            <Button
+                                onClick={handleNavigateToCrossVal}
+                                icon={<FlaskConical className="w-4 h-4" />}
+                            >
+                                {t.goToCrossValidation}
+                            </Button>
+                        )}
                     </div>
                 </section>
             )}

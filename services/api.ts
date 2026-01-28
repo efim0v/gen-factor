@@ -86,6 +86,7 @@ export const ApiService = {
       label: factor.name,
       code: factor.code,
       type: factor.type,
+      factorType: factor.factor_type,  // categorical or continual from DB
     }));
   },
 
@@ -159,7 +160,7 @@ export const ApiService = {
     dbName: string,
     breedId: string,
     trait: { code: string; table?: string; label?: string },
-    factors: Array<{ code: string; type: string; table?: string; label?: string }>,
+    factors: Array<{ code: string; type: string; table?: string; label?: string; factor_type?: string }>,
     settings: {
       analyzeAllCombinations: boolean;
       pValueThreshold?: number;
@@ -184,6 +185,7 @@ export const ApiService = {
         name: f.code,
         type: 'cross',
         label: f.label,  // Russian display name for reports
+        factor_type: f.factor_type,  // categorical or continual from DB
       })),
       settings: {
         analyze_all_combinations: settings.analyzeAllCombinations,
@@ -213,6 +215,7 @@ export const ApiService = {
         type: 'cross',
         table: resolveTableName(f),
         label: f.label,  // Russian display name for reports
+        factor_type: f.factorType,  // categorical or continual from DB
       }));
 
     const traitWithTable = {
